@@ -1,1 +1,3 @@
 orca-hls-utils @ git+https://github.com/CaseCal/orca-hls-utils
+scipy==1.7.3
+matplotlib==3.5.3
