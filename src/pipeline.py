@@ -37,28 +37,33 @@ def ts_to_spectrogram(start_date: dt.date, end_date: dt.date, wav_folder, max_fi
     result = []
     while len(result) <= max_files and not stream.is_stream_over():
         wav_file_path, clip_start_time, current_clip_name = stream.get_next_clip()
+        print(clip_start_time)
         frequencies, times, spectrogram = create_spectogram(wav_file_path)
         result.append(spectrogram)
 
     return result
 
 
-def create_spectogram(file):
+def create_spectogram(file, segs_per_sec=None):
     """
     Create a spectrogram from a wav file.
 
     * file: File handle or path of wav file
-    * sample_rate: Rate in samples per second. Leave as none to use the sample rate of the wav file
+    * segs_per_sec: Number of bins per second to calculate. Leave None to create maximum granularity
 
     # Return
 
     Tuple of frequencies, times, spectrogram
     """
-    sample_rate, samples = wavfile.read(file)
+    wav_sample_rate, samples = wavfile.read(file)
+    nperseg = None if not segs_per_sec else int(wav_sample_rate / segs_per_sec)
 
     # Average channels if more than 1
     if len(samples.shape) > 1 and samples.shape[1] > 1:
         samples = np.mean(samples, axis=1)
 
-    frequencies, times, spectrogram = signal.spectrogram(samples, sample_rate)
+    frequencies, times, spectrogram = signal.spectrogram(samples, fs=wav_sample_rate, nperseg=nperseg)
     return frequencies, times, spectrogram
+
+
+
