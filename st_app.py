@@ -1,5 +1,6 @@
 import datetime as dt
 import os
+from tempfile import TemporaryDirectory
 
 import matplotlib.pyplot as plt
 import streamlit as st
@@ -7,21 +8,26 @@ import streamlit as st
 # Local imports
 from src import pipeline
 
-
-# Create spectrograms
-# grams = pipeline.ts_to_spectrogram(
-#     dt.date(2022, 11, 5),
-#     dt.date(2022, 11, 6),
-#     'wav'
-# )
-
-grams = [
-    pipeline.create_spectogram('wav/' + file, 1)[2]
-    for file in os.listdir('wav')
-]
-
 # Title
 st.write("# Example Spectrograms")
+
+# Date
+as_of_date = st.date_input("Choose a day")
+
+
+# Create spectrograms
+
+grams = pipeline.ts_to_spectrogram(
+    as_of_date,
+    as_of_date + dt.timedelta(days=1),
+    TemporaryDirectory
+)
+
+# grams = [
+#     pipeline.create_spectogram('wav/' + file, 1)[2]
+#     for file in os.listdir('wav')
+# ]
+
 
 # Choose spectrogram
 gram_idx = st.selectbox(
