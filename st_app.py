@@ -14,20 +14,16 @@ st.write("# Example Spectrograms")
 # Date
 as_of_date = st.date_input("Choose a day")
 
-
 # Create spectrograms
-
-grams = pipeline.ts_to_spectrogram(
-    as_of_date,
-    as_of_date + dt.timedelta(days=1),
-    TemporaryDirectory
-)
-
-# grams = [
-#     pipeline.create_spectogram('wav/' + file, 1)[2]
-#     for file in os.listdir('wav')
-# ]
-
+@st.cache
+def get_grams(as_of_date):
+    with TemporaryDirectory() as tmp_path:
+        return pipeline.ts_to_spectrogram(
+            as_of_date,
+            as_of_date + dt.timedelta(days=1),
+            tmp_path
+        )
+grams = get_grams(as_of_date)
 
 # Choose spectrogram
 gram_idx = st.selectbox(
