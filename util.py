@@ -126,11 +126,28 @@ def select_spec_case(plot_path, folder_path, pcen=False, wavelet=False):
             spectrogram_data = wavelet_denoising(pcen_spec)
         spec_plot_and_save(spectrogram_data, f_name, plot_path)
 
-def wav_to_array(filepath, hop_length = 256, n_fft=4096, pcen=False, wavelet=False):
+def wav_to_array(filepath, hop_length = 256, n_fft=4800, pcen=False, wavelet=False, ref=np.max):
+    """
+    This function converts a wavfile to a dataframe of power spectral density, with the index as the timestamp from the start of the wav file and the columns as the frequency bin.  This function also calculates the broadband average noise level of the input wavefile before the dB conversion per time step after the FFT calculation.  
 
-    y, sr = librosa.load(filepath)
+    df1: Spectrogram data.  Index = time, columns = frequency. 
+    df2: Broadband noise average.  Index = time, column = average noise.  
+
+    Args:
+        filepath: file path to .wav
+        hop_length: int. number of audio samples between adjacent STFT columns.  See librosa docs for more info. 
+        n_fft: int. number of points in the acquired time-domain signal.  delta F = sample rate/n_fft
+        pcen: binary. set to True to apply PCEN
+        wavelet: binary. set to True to apply wavelet denoising
+        ref: float.  reference level for the amplitude to dB conversion.  must be an absolute value, not dB. 
+
+    Returns:
+        Tuple of (df1, df2)
+    """
+
+    y, sr = librosa.load(filepath, sr=None)
     D_highres = librosa.stft(y, hop_length=hop_length, n_fft=n_fft)
-    spec = librosa.amplitude_to_db(np.abs(D_highres), ref=np.max)
+    spec = librosa.amplitude_to_db(np.abs(D_highres), ref=ref)
     freqs = librosa.core.fft_frequencies(sr=sr,n_fft=n_fft)
     times = librosa.core.frames_to_time(np.arange(spec.shape[1]), sr=sr, n_fft=n_fft, hop_length=hop_length)
 
@@ -142,5 +159,14 @@ def wav_to_array(filepath, hop_length = 256, n_fft=4096, pcen=False, wavelet=Fal
                                 convert2ycbcr=False,
                                 method="BayesShrink",
                                 mode="soft")
+    avgs = []
+    DT = D_highres.transpose()
+    for i in range(len(DT)):
+        avgs.append(np.average(np.abs(DT[i,1])))
+    df = pd.DataFrame(spec.transpose(), columns=freqs, index=times)
+    avg_df = pd.DataFrame(avgs, index=times)
 
-    return pd.DataFrame(spec.transpose(), columns=freqs, index=times)
+    return df, avg_df
+
+def ancient_ambient(df):
+    return np.percentile(df, 5)
