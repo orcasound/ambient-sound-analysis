@@ -169,4 +169,28 @@ def wav_to_array(filepath, hop_length = 256, n_fft=4800, pcen=False, wavelet=Fal
     return df, avg_df
 
 def ancient_ambient(df):
+    """
+    Ancient ambient noise level is defined as the 5th percentile noise level of a month's acoustic data.  
+
+    Args: Array-like object containing a month of acoustic data.  
+
+    Returns: 5th percentile noise level
+    """
+
     return np.percentile(df, 5)
+
+def spec_plot(df, sr=48000, hop_length=256):
+    """
+    This function converts a table of power spectral data, having the columns represent frequency bins and the rows represent time segments, to a spectrogram.  
+
+    Args: 
+        df: Dataframe of power spectral data. 
+        sr: int. Sample rate of the audio signal.
+        hop_length: int. Number of audio samples between adjacent STFT columns.  See librosa docs for more info.
+
+    Returns: Spectral plot
+    """
+    
+    D = df.to_numpy()
+    D = D.transpose()
+    librosa.display.specshow(D, y_axis='log', sr=sr, hop_length=hop_length, x_axis='time')
