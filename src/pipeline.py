@@ -9,7 +9,7 @@ from scipy.io import wavfile
 
 # Local imports
 from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
-
+from util import wav_to_array
 
 def ts_to_spectrogram(start_date: dt.date, end_date: dt.date, wav_folder, max_files=5):
     """
@@ -41,6 +41,39 @@ def ts_to_spectrogram(start_date: dt.date, end_date: dt.date, wav_folder, max_fi
         result.append(spectrogram)
 
     return result
+
+
+def ts_to_array(start_date: dt.date, end_date: dt.date, wav_folder, max_files=6):
+    """
+    Pull ts files from aws and create PSD arrays of them by converting to wav files.
+
+    * start_date: First date to pull files for
+    * end_date: Last date to collect files for
+    * wav_folder: folder path to store wav files in
+    * max_files: Maximum number of wav files to generate. Use to help limit compute and egress whiel testing.
+
+    # Return
+
+    List of PSDs, one per wav file generated
+
+    """
+
+    stream = DateRangeHLSStream(
+        'https://s3-us-west-2.amazonaws.com/streaming-orcasound-net/rpi_orcasound_lab',
+        60,
+        time.mktime(start_date.timetuple()),
+        time.mktime(end_date.timetuple()),
+        wav_folder
+    )
+
+    result = []
+    while len(result) < max_files and not stream.is_stream_over():
+        wav_file_path, clip_start_time, current_clip_name = stream.get_next_clip()
+        df = wav_to_array(wav_file_path, hop_length = 256, n_fft=4096, pcen=False, wavelet=False)
+        result.append(df)
+
+    return result
+
 
 
 def create_spectogram(file):
