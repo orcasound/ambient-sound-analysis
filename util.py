@@ -5,6 +5,7 @@ from skimage.restoration import denoise_wavelet
 import os
 import numpy as np
 import pandas as pd
+import datetime
 
 
 def apply_per_channel_energy_norm(spectrogram):
@@ -126,13 +127,32 @@ def select_spec_case(plot_path, folder_path, pcen=False, wavelet=False):
             spectrogram_data = wavelet_denoising(pcen_spec)
         spec_plot_and_save(spectrogram_data, f_name, plot_path)
 
-def wav_to_array(filepath, hop_length = 256, n_fft=4096, pcen=False, wavelet=False):
+def wav_to_array(filepath, t0=datetime.datetime.now(), hop_length = 256, n_fft=4800, pcen=False, wavelet=False, ref=np.max):
+    """
+    This function converts a wavfile to a dataframe of power spectral density, with the index as the timestamp from the start of the wav file and the columns as the frequency bin.  This function also calculates the broadband average noise level of the input wavefile before the dB conversion per time step after the FFT calculation.  
 
-    y, sr = librosa.load(filepath)
+    df1: Spectrogram data.  Index = time, columns = frequency. 
+    df2: Broadband noise average.  Index = time, column = average noise.  
+
+    Args:
+        filepath: file path to .wav
+        to: datetime.  starting time of the recording. 
+        hop_length: int. number of audio samples between adjacent STFT columns.  See librosa docs for more info. 
+        n_fft: int. number of points in the acquired time-domain signal.  delta F = sample rate/n_fft
+        pcen: binary. set to True to apply PCEN
+        wavelet: binary. set to True to apply wavelet denoising
+        ref: float.  reference level for the amplitude to dB conversion.  must be an absolute value, not dB. 
+
+    Returns:
+        Tuple of (df1, df2)
+    """
+
+    y, sr = librosa.load(filepath, sr=None)
     D_highres = librosa.stft(y, hop_length=hop_length, n_fft=n_fft)
-    spec = librosa.amplitude_to_db(np.abs(D_highres), ref=np.max)
+    spec = librosa.amplitude_to_db(np.abs(D_highres), ref=ref)
     freqs = librosa.core.fft_frequencies(sr=sr,n_fft=n_fft)
-    times = librosa.core.frames_to_time(np.arange(spec.shape[1]), sr=sr, n_fft=n_fft, hop_length=hop_length)
+    secs = librosa.core.frames_to_time(np.arange(spec.shape[1]), sr=sr, n_fft=n_fft, hop_length=hop_length)
+    times = [t0 + datetime.timedelta(seconds=x) for x in secs]
 
     if pcen:
         spec = librosa.core.pcen(spec)
@@ -142,5 +162,43 @@ def wav_to_array(filepath, hop_length = 256, n_fft=4096, pcen=False, wavelet=Fal
                                 convert2ycbcr=False,
                                 method="BayesShrink",
                                 mode="soft")
+    avgs = []
+    DT = D_highres.transpose()
+    for i in range(len(DT)):
+        avgs.append(np.average(np.abs(DT[i,1])))
+    df = pd.DataFrame(spec.transpose(), columns=freqs, index=times)
+    df = df.astype(float).round(2)
+    df.columns = df.columns.map(str)
 
-    return pd.DataFrame(spec.transpose(), columns=freqs, index=times)
+    avg_df = pd.DataFrame(avgs, index=times)
+    avg_df = avg_df.astype(float).round(2)
+    avg_df.columns = avg_df.columns.map(str)
+
+    return df, avg_df
+
+def ancient_ambient(df):
+    """
+    Ancient ambient noise level is defined as the 5th percentile noise level of a month's acoustic data.  
+
+    Args: Array-like object containing a month of acoustic data.  
+
+    Returns: 5th percentile noise level
+    """
+
+    return np.percentile(df, 5)
+
+def spec_plot(df, sr=48000, hop_length=256):
+    """
+    This function converts a table of power spectral data, having the columns represent frequency bins and the rows represent time segments, to a spectrogram.  
+
+    Args: 
+        df: Dataframe of power spectral data. 
+        sr: int. Sample rate of the audio signal.
+        hop_length: int. Number of audio samples between adjacent STFT columns.  See librosa docs for more info.
+
+    Returns: Spectral plot
+    """
+    
+    D = df.to_numpy()
+    D = D.transpose()
+    librosa.display.specshow(D, y_axis='log', sr=sr, hop_length=hop_length, x_axis='time')
