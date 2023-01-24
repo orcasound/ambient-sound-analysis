@@ -164,7 +164,10 @@ def wav_to_array(filepath, hop_length = 256, n_fft=4800, pcen=False, wavelet=Fal
     for i in range(len(DT)):
         avgs.append(np.average(np.abs(DT[i,1])))
     df = pd.DataFrame(spec.transpose(), columns=freqs, index=times)
+    df.columns = df.columns.map(str)
+
     avg_df = pd.DataFrame(avgs, index=times)
+    avg_df.columns = avg_df.columns.map(str)
 
     return df, avg_df
 
