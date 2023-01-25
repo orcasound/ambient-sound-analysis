@@ -43,7 +43,7 @@ def ts_to_spectrogram(start_date: dt.date, end_date: dt.date, wav_folder, max_fi
     return result
 
 
-def ts_to_array(start_date: dt.date, end_date: dt.date, wav_folder, max_files=6, overwrite_output=False):
+def ts_to_array(start_date: dt.date, end_date: dt.date, wav_folder, max_files=6, overwrite_output=False, **kwargs):
     """
     Pull ts files from aws and create PSD arrays of them by converting to wav files.
 
@@ -52,6 +52,7 @@ def ts_to_array(start_date: dt.date, end_date: dt.date, wav_folder, max_files=6,
     * wav_folder: folder path to store wav files in
     * max_files: Maximum number of wav files to generate. Use to help limit compute and egress whiel testing.
     * overwrite_output: Automatically overwrite existing wav files. If False, will prompt before overwriting
+    * kwargs: Other keyword args are passed to wav_to_array
 
     # Return
 
@@ -71,8 +72,9 @@ def ts_to_array(start_date: dt.date, end_date: dt.date, wav_folder, max_files=6,
     result = []
     while len(result) < max_files and not stream.is_stream_over():
         wav_file_path, clip_start_time, current_clip_name = stream.get_next_clip()
-        df = wav_to_array(wav_file_path, hop_length = 256, n_fft=4096, pcen=False, wavelet=False)
-        result.append(df)
+        if wav_file_path is not None:
+            df = wav_to_array(wav_file_path, **kwargs)
+            result.append(df)
 
     return result
 
