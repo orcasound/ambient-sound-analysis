@@ -43,7 +43,7 @@ def ts_to_spectrogram(start_date: dt.date, end_date: dt.date, wav_folder, max_fi
     return result
 
 
-def ts_to_array(start_date: dt.date, end_date: dt.date, wav_folder, max_files=6):
+def ts_to_array(start_date: dt.date, end_date: dt.date, wav_folder, max_files=6, overwrite_output=False):
     """
     Pull ts files from aws and create PSD arrays of them by converting to wav files.
 
@@ -51,6 +51,7 @@ def ts_to_array(start_date: dt.date, end_date: dt.date, wav_folder, max_files=6)
     * end_date: Last date to collect files for
     * wav_folder: folder path to store wav files in
     * max_files: Maximum number of wav files to generate. Use to help limit compute and egress whiel testing.
+    * overwrite_output: Automatically overwrite existing wav files. If False, will prompt before overwriting
 
     # Return
 
@@ -63,7 +64,8 @@ def ts_to_array(start_date: dt.date, end_date: dt.date, wav_folder, max_files=6)
         60,
         time.mktime(start_date.timetuple()),
         time.mktime(end_date.timetuple()),
-        wav_folder
+        wav_folder,
+        overwrite_output
     )
 
     result = []
