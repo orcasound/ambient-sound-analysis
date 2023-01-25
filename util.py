@@ -127,7 +127,7 @@ def select_spec_case(plot_path, folder_path, pcen=False, wavelet=False):
             spectrogram_data = wavelet_denoising(pcen_spec)
         spec_plot_and_save(spectrogram_data, f_name, plot_path)
 
-def wav_to_array(filepath, t0=datetime.datetime.now(), hop_length = 256, n_fft=4800, pcen=False, wavelet=False, ref=np.max):
+def wav_to_array(filepath, t0=datetime.datetime.now(), hop_length = 256, n_fft=4096, pcen=False, wavelet=False, ref=np.max):
     """
     This function converts a wavfile to a dataframe of power spectral density, with the index as the timestamp from the start of the wav file and the columns as the frequency bin.  This function also calculates the broadband average noise level of the input wavefile before the dB conversion per time step after the FFT calculation.  
 
