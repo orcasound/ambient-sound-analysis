@@ -1,0 +1,24 @@
+Info: Folder structure = hydrophone -> year -> month
+Naming convention: ISO HydrophoneName_YYYY-MM-DD.parquet
+
+
+Next steps:
+
+Add top-level to pipeline: single function that will generate a range of files - Grant
+Add parameters to top-level of pipeline to control time and hz frequency - Mitch
+Add ambient noise to the fft - Mitch
+Add rollup step to combine timeframes into desired granularity - Grant
+Process to generate/select correct folder and file and name file with timestamp - Caleb
+Function to read files by hydrophone and date-range, specify pds or broadband - Caleb
+
+Generate some files to determine best granularity/size of parquet files - All/When we're ready
+
+Questions for next meeting:
+
+Final decision on granularity
+Should we add broadband column to pds parquet files
+
+
+
+
+
