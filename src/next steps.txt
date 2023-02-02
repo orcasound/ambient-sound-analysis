@@ -16,9 +16,10 @@ Generate some files to determine best granularity/size of parquet files - All/Wh
 Questions for next meeting:
 
 Final decision on granularity
-Should we add broadband column to pds parquet files
+Should we add broadband column to pds parquet files - leave in as 0th column
 
 
 
-
+Expirements for frequency band and time domain resolution, min to max, for storage space and compute
+Target at least 1/3 octave bands, down to 63 Hz
 
