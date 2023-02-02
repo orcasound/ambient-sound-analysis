@@ -1,6 +1,7 @@
 import librosa
 import librosa.display
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from skimage.restoration import denoise_wavelet
 import os
 import numpy as np
@@ -201,4 +202,11 @@ def spec_plot(df, sr=48000, hop_length=256):
     
     D = df.to_numpy()
     D = D.transpose()
-    librosa.display.specshow(D, y_axis='log', sr=sr, hop_length=hop_length, x_axis='time')
+
+    fig = plt.figure()
+    librosa.display.specshow(D, y_axis='log', sr=48000, hop_length=256, x_axis='time', x_coords=df.index, cmap='gray')
+    fig.gca().set_xlabel("Time")
+    fig.gca().set_ylabel("Hz")
+    fig.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    fig.gca().xaxis.set_major_locator(mdates.SecondLocator())
+    plt.gcf().autofmt_xdate()
