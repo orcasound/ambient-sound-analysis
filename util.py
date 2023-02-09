@@ -128,12 +128,12 @@ def select_spec_case(plot_path, folder_path, pcen=False, wavelet=False):
             spectrogram_data = wavelet_denoising(pcen_spec)
         spec_plot_and_save(spectrogram_data, f_name, plot_path)
 
-def wav_to_array(filepath, t0=datetime.datetime.now(), hop_length = 256, n_fft=4096, pcen=False, wavelet=False, ref=np.max, bands=None):
+def wav_to_array(filepath, t0=datetime.datetime.now(), delta_t=1, delta_f=10, pcen=False, wavelet=False, ref=np.max, bands=None):
     """
     This function converts a wavfile to a dataframe of power spectral density, with the index as the timestamp from the start of the wav file and the columns as the frequency bin.  This function also calculates the broadband average noise level of the input wavefile before the dB conversion per time step after the FFT calculation.  
 
     df1: Spectrogram data.  Index = time, columns = frequency. 
-    df2: Broadband noise average.  Index = time, column = average noise.  
+    df2: Broadband RMS level.  Index = time, column = average noise.  
 
     Args:
         filepath: file path to .wav
@@ -149,6 +149,10 @@ def wav_to_array(filepath, t0=datetime.datetime.now(), hop_length = 256, n_fft=4
     """
 
     y, sr = librosa.load(filepath, sr=None)
+
+    n_fft = int(sr/delta_f)
+    hop_length = int(delta_t*sr)
+
     D_highres = librosa.stft(y, hop_length=hop_length, n_fft=n_fft)
     spec = librosa.amplitude_to_db(np.abs(D_highres), ref=ref)
     freqs = librosa.core.fft_frequencies(sr=sr,n_fft=n_fft)
@@ -163,26 +167,27 @@ def wav_to_array(filepath, t0=datetime.datetime.now(), hop_length = 256, n_fft=4
                                 convert2ycbcr=False,
                                 method="BayesShrink",
                                 mode="soft")
-    avgs = []
+    rms = []
+    delta_f = sr/n_fft
     DT = D_highres.transpose()
     for i in range(len(DT)):
-        avgs.append(np.average(np.abs(DT[i,1])))
+        rms.append(np.sqrt(delta_f*np.sum(np.abs(DT[i,1]))))
     df = pd.DataFrame(spec.transpose(), columns=freqs, index=times)
     df = df.astype(float).round(2)
     df.columns = df.columns.map(str)
 
-    avg_df = pd.DataFrame(avgs, index=times)
-    avg_df = avg_df.astype(float).round(2)
-    avg_df.columns = avg_df.columns.map(str)
+    rms_df = pd.DataFrame(rms, index=times)
+    rms_df = rms_df.astype(float).round(2)
+    rms_df.columns = rms_df.columns.map(str)
 
     if bands != None:
         
-        oct_unscaled, fm = spec_to_bands(np.abs(DT), bands, freqs=freqs, ref=ref)
+        oct_unscaled, fm = spec_to_bands(np.abs(DT), bands, delta_f, freqs=freqs, ref=ref)
         oct_df = pd.DataFrame(oct_unscaled, columns=fm, index=times).astype(float).round(2)
 
-        return oct_df, avg_df
+        return oct_df, rms_df
     else:
-        return df, avg_df
+        return df, rms_df
 
 def ancient_ambient(df):
     """
@@ -211,7 +216,7 @@ def spec_plot(df, sr=48000, hop_length=256):
     D = D.transpose()
 
     fig = plt.figure()
-    librosa.display.specshow(D, y_axis='log', sr=48000, hop_length=256, x_axis='time', x_coords=df.index, cmap='gray')
+    librosa.display.specshow(D, y_axis='log', sr=sr, hop_length=hop_length, x_axis='time', x_coords=df.index, cmap='gray')
     fig.gca().set_xlabel("Time")
     fig.gca().set_ylabel("Hz")
     fig.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
@@ -237,19 +242,24 @@ def filt_gain(f, fm, b):
 
     return np.sqrt(np.divide(ones, np.add(ones, h)))
 
-def band_power(psd, g):
+def band_power(psd, g, delta_f):
     """
+    https://www.ap.com/technical-library/deriving-fractional-octave-spectra-from-the-fft-with-apx/
+
     psd: original power spectral density
     g: gains to apply 
     """
 
     exp = np.full(len(psd), 2.0)
     x = np.multiply(psd, np.power(g, exp))
-    return np.sqrt(np.sum(x))
+    return np.sqrt(delta_f*np.sum(x))
 
 def octave_band(N, freqs):
     """
+
+
     ISO Series
+    R5: 1 octave
     R10: 1/3 octave (1/10 decade)
     R20: 1/6 octave (1/20 decade)
     R40: 1/12 octave (1/40 decade)
@@ -262,6 +272,11 @@ def octave_band(N, freqs):
     Returns:
     ISO R series
     """
+
+    # ISO R5 frequenceis
+    Rfive = np.array([63, 125, 250, 500, 1000, 2000,
+    4000, 8000, 16000])
+    g_Rfive = [filt_gain(freqs, x, 1) for x in Rfive]
 
     # ISO R10 frequencies from 63 Hz to 22.4 kHz
     Rten = np.array([63, 80, 100, 125, 160, 200, 
@@ -316,11 +331,13 @@ def octave_band(N, freqs):
     21200, 21800, 22400])
     g_Reighty = [filt_gain(freqs, x, 24) for x in Reighty]
 
-    bands = {3: Rten,
+    bands = {1: Rfive,
+            3: Rten,
             6: Rtwenty,
             12: Rforty,
             24: Reighty}
-    filters = {3: g_Rten,
+    filters = {1: g_Rfive,
+            3: g_Rten,
             6: g_Rtwenty,
             12: g_Rforty,
             24: g_Reighty}
@@ -330,7 +347,7 @@ def octave_band(N, freqs):
     else:
         return bands[N], filters[N]
 
-def spec_to_bands(psd, N, freqs, ref):
+def spec_to_bands(psd, N, delta_f, freqs, ref):
     """
 
     """
@@ -338,7 +355,7 @@ def spec_to_bands(psd, N, freqs, ref):
     bands, gains = octave_band(N, freqs)
     octaves = np.empty((0, len(bands)), dtype=float)
     for row in psd:
-        octaves = np.append(octaves, np.array([[band_power(row, g) for g in gains]]), axis=0)
+        octaves = np.append(octaves, np.array([[band_power(row, g, delta_f) for g in gains]]), axis=0)
 
     octaves_scaled = librosa.amplitude_to_db(octaves, ref=ref)
 
