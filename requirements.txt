@@ -1,6 +1,7 @@
-orca-hls-utils @ git+https://github.com/CaseCal/orca-hls-utils
+orca-hls-utils @ git+https://github.com/orcasound/orca-hls-utils.git
 scipy==1.7.3
 matplotlib==3.5.3
 streamlit==1.17.0
 librosa==0.9.2
 scikit-image==0.19.3
+boto3>=1.26.65
