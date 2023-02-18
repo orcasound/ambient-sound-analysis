@@ -17,9 +17,11 @@ class Bucket(Enum):
     ORCASOUND_LAB = "rpi_orcasound_lab"
     PORT_TOWNSEND = "rpi_port_townsend"
     SUNSET_BAY = "rpi_sunset_bay"
-    SANDBOX = "acoustic-sandbox/noise-analysis"
+    SANDBOX = "acoustic-sandbox"
 
 class S3FileConnector:
+
+    DT_FORMAT = "%Y%m%dT%H%M%S"
 
     def __init__(self, bucket: Bucket):
         """
@@ -28,18 +30,38 @@ class S3FileConnector:
         self.bucket = bucket
         self.client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
 
-    @staticmethod
-    def create_filename(start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands):
+    @classmethod
+    def create_filename(cls, start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands):
         """ Create a filename with the given daterange and granularity. Dates must be in UTC """
 
-        dt_format = "%Y%m%dT%H%M%S"
-
-        start_str = start.strftime(dt_format)
-        end_str = end.strftime(dt_format)
+        start_str = start.strftime(cls.DT_FORMAT)
+        end_str = end.strftime(cls.DT_FORMAT)
         sec_str = f"{secs_per_sample}s"
         freq_str = str(hz_bands) + ('hz' if isinstance(hz_bands, int) else '')
 
         return f"{start_str}_{end_str}_{sec_str}_{freq_str}.parquet"
+
+    @classmethod
+    def parse_filename(cls, filename: str):
+        """
+        Helper function to extract data from filename.
+
+        # Return
+        startdt, enddt, secs_per_sample, hz_band list
+        """
+
+        args = filename.replace(".parquet", "").split("_")
+        print(args)
+        args[0] = dt.datetime.strptime(args[0], cls.DT_FORMAT)
+        args[1] = dt.datetime.strptime(args[1], cls.DT_FORMAT)
+        args[2] = int(args[2].replace("s", ""))
+        args[3] = int(args[3].replace("hz", ""))
+        try:
+            args[3] = int(args[3])
+        except ValueError:
+            pass
+
+        return args
 
     def upload_file(self, file, start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands):
         """
@@ -60,9 +82,11 @@ class S3FileConnector:
         if isinstance(file, str):
             file = open(file, 'rb')
             opened_file = True
-
+        else:
+            opened_file = False
+        
         try:
-            response = self.s3_client.upload_fileobj(file, self.bucket, file_name)
+            response = self.client.upload_fileobj(file, self.bucket.value, file_name)
         except ClientError as e:
             logging.error(e)
             return False
@@ -71,16 +95,6 @@ class S3FileConnector:
         finally:
             if opened_file:
                 file.close()
-
-
-        bucket_list = [int(bucket) for bucket in bucket_list]
-        start_index = 0
-        end_index = len(bucket_list) - 1
-        while int(bucket_list[start_index]) < int(start_time):
-            start_index += 1
-        while int(bucket_list[end_index]) > int(end_time):
-            end_index -= 1
-        return bucket_list[start_index-1:end_index + 1]
 
 
     
