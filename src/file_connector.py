@@ -13,11 +13,11 @@ class Bucket(Enum):
     Enum for orcasound AWS S3 Buckets
     """
 
-    BUSH_POINT = "rpi_bush_point"
-    ORCASOUND_LAB = "rpi_orcasound_lab"
-    PORT_TOWNSEND = "rpi_port_townsend"
-    SUNSET_BAY = "rpi_sunset_bay"
-    SANDBOX = "acoustic-sandbox"
+    BUSH_POINT = ("streaming-orcasound-net", "rpi_bush_point")
+    ORCASOUND_LAB = ("streaming-orcasound-net", "rpi_orcasound_lab")
+    PORT_TOWNSEND = ("streaming-orcasound-net", "rpi_port_townsend")
+    SUNSET_BAY = ("streaming-orcasound-net", "rpi_sunset_bay")
+    SANDBOX = ("acoustic-sandbox", "orcasounds")
 
 class S3FileConnector:
 
@@ -27,8 +27,10 @@ class S3FileConnector:
         """
         S3File Connector maintains a connection to an AWS s3 bucket.
         """
-        self.bucket = bucket
+        self.bucket = bucket.value[0]
+        self.ref_folder = bucket.value[1]
         self.client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+        self.resource = boto3.resource('s3', config=Config(signature_version=UNSIGNED)).Bucket(self.bucket)
 
     @classmethod
     def create_filename(cls, start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands):
@@ -96,5 +98,20 @@ class S3FileConnector:
             if opened_file:
                 file.close()
 
+    def get_files(self, start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands):
+        """
+        Get files within datetime range and matching optional sec and hz band requirements
 
-    
+        """
+        paginator = self.client.get_paginator("list_objects_v2")
+
+        all_files = []
+
+        for my_bucket_object in self.resource.objects.filter(Prefix=self.ref_folder):
+            filename = my_bucket_object.key.split("/")[-1]
+            fstart, fend, fsec, fhz = self.parse_filename(filename)
+            if fstart >= start and fstart <= fend:
+                all_files.append(my_bucket_object)
+
+        return all_files
+        
