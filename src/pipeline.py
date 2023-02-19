@@ -128,6 +128,9 @@ class NoiseAnalysisPipeline:
         * end: datetime, end of data to poll
         * pqt_folder_override: Overide the object level settings for where to save pqt files.
         * upload_to_s3: Boolean, set to true to upload file to S3 after saving
+
+        # Return
+        Filepath of generated pqt file.
         """
 
         # Create datafame
@@ -144,6 +147,8 @@ class NoiseAnalysisPipeline:
         # Upload
         if upload_to_s3:
             self.file_connector.upload_file(filePath, start, end, self.delta_t, self.delta_f)
+
+        return filePath
 
     def create_spectogram(file):
         """
