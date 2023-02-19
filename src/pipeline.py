@@ -18,14 +18,16 @@ from .file_connector import S3FileConnector
 
 class NoiseAnalysisPipeline:
 
-    def __init__(self, hydrophone: Hydrophone, delta_f, delta_t, bands=None, wav_folder=None, pqt_folder=None, ):
+    def __init__(self, hydrophone: Hydrophone, delta_f, delta_t, bands=None, wav_folder=None, pqt_folder=None):
         """
         Pipeline object for generating rolled-up PDS parquet files. 
 
         * hydrophone: Hydrophone enum that contains all conenction info to S3 buccket.
         * wav_folder: Local folder to store wav files in. Defaults to Temporary Directory
         * pqt_folder: Local folder to store pqt files in. Defaults to Temporary Directory
-        * bands: The octave bands to reduce each PDS to.
+        * delta_f: The number of hertz per band
+        * delta_t: The number of seconds per sample
+        * bands: #TODO: What do bands do?
         """
 
         # Conenctions
