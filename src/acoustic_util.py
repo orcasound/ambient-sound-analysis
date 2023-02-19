@@ -1,12 +1,14 @@
+import os
+import datetime
+
 import librosa
 import librosa.display
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from skimage.restoration import denoise_wavelet
-import os
 import numpy as np
 import pandas as pd
-import datetime
+
 
 
 def apply_per_channel_energy_norm(spectrogram):
@@ -128,6 +130,7 @@ def select_spec_case(plot_path, folder_path, pcen=False, wavelet=False):
             spectrogram_data = wavelet_denoising(pcen_spec)
         spec_plot_and_save(spectrogram_data, f_name, plot_path)
 
+
 def wav_to_array(filepath, t0=datetime.datetime.now(), delta_t=1, delta_f=10, pcen=False, wavelet=False, ref=np.max, bands=None):
     """
     This function converts a wavfile to a dataframe of power spectral density, with the index as the timestamp from the start of the wav file and the columns as the frequency bin.  This function also calculates the broadband average noise level of the input wavefile before the dB conversion per time step after the FFT calculation.  
@@ -189,6 +192,7 @@ def wav_to_array(filepath, t0=datetime.datetime.now(), delta_t=1, delta_f=10, pc
     else:
         return df, rms_df
 
+
 def ancient_ambient(df):
     """
     Ancient ambient noise level is defined as the 5th percentile noise level of a month's acoustic data.  
@@ -199,6 +203,7 @@ def ancient_ambient(df):
     """
 
     return np.percentile(df, 5)
+
 
 def spec_plot(df, sr=48000, hop_length=256):
     """
@@ -223,6 +228,7 @@ def spec_plot(df, sr=48000, hop_length=256):
     fig.gca().xaxis.set_major_locator(mdates.SecondLocator())
     plt.gcf().autofmt_xdate()
 
+
 def filt_gain(f, fm, b):
     """
     f: array of frequencies to apply gain to
@@ -242,6 +248,7 @@ def filt_gain(f, fm, b):
 
     return np.sqrt(np.divide(ones, np.add(ones, h)))
 
+
 def band_power(psd, g, delta_f):
     """
     https://www.ap.com/technical-library/deriving-fractional-octave-spectra-from-the-fft-with-apx/
@@ -253,6 +260,7 @@ def band_power(psd, g, delta_f):
     exp = np.full(len(psd), 2.0)
     x = np.multiply(psd, np.power(g, exp))
     return np.sqrt(delta_f*np.sum(x))
+
 
 def octave_band(N, freqs):
     """
@@ -346,6 +354,7 @@ def octave_band(N, freqs):
         raise ValueError
     else:
         return bands[N], filters[N]
+
 
 def spec_to_bands(psd, N, delta_f, freqs, ref):
     """
