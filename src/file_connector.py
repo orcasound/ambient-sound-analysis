@@ -1,34 +1,23 @@
 import datetime as dt
 import logging
-from enum import Enum
 
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-     
-class Bucket(Enum):
-    """
-    Enum for orcasound AWS S3 Buckets
-    """
-
-    BUSH_POINT = ("streaming-orcasound-net", "rpi_bush_point")
-    ORCASOUND_LAB = ("streaming-orcasound-net", "rpi_orcasound_lab")
-    PORT_TOWNSEND = ("streaming-orcasound-net", "rpi_port_townsend")
-    SUNSET_BAY = ("streaming-orcasound-net", "rpi_sunset_bay")
-    SANDBOX = ("acoustic-sandbox", "orcasounds")
+from .hydrophone import Hydrophone
 
 class S3FileConnector:
 
     DT_FORMAT = "%Y%m%dT%H%M%S"
 
-    def __init__(self, bucket: Bucket):
+    def __init__(self, hydrophone: Hydrophone):
         """
         S3File Connector maintains a connection to an AWS s3 bucket.
         """
-        self.bucket = bucket.value[0]
-        self.ref_folder = bucket.value[1]
+        self.bucket = hydrophone.value.bucket
+        self.ref_folder = hydrophone.value.ref_folder
         self.client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
         self.resource = boto3.resource('s3', config=Config(signature_version=UNSIGNED)).Bucket(self.bucket)
 
