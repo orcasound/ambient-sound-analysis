@@ -18,13 +18,14 @@ from .file_connector import S3FileConnector
 
 class NoiseAnalysisPipeline:
 
-    def __init__(self, hydrophone: Hydrophone, wav_folder=None, pqt_folder=None):
+    def __init__(self, hydrophone: Hydrophone, delta_f, delta_t, bands=None, wav_folder=None, pqt_folder=None, ):
         """
         Pipeline object for generating rolled-up PDS parquet files. 
 
         * hydrophone: Hydrophone enum that contains all conenction info to S3 buccket.
         * wav_folder: Local folder to store wav files in. Defaults to Temporary Directory
         * pqt_folder: Local folder to store pqt files in. Defaults to Temporary Directory
+        * bands: The octave bands to reduce each PDS to.
         """
 
         # Conenctions
@@ -45,6 +46,11 @@ class NoiseAnalysisPipeline:
         else:
             self.pqt_folder_td = tempfile.TemporaryDirectory()
             self.pqt_folder = self.pqt_folder_td.name
+
+        # Config
+        self.delta_f = delta_f
+        self.delta_t = delta_t
+        self.bands = bands
 
     def __del__(self):
         """"
@@ -80,7 +86,7 @@ class NoiseAnalysisPipeline:
 
         # TODO
 
-    def generate_psds(self, start: dt.datetime, end: dt.datetime, max_files=6, overwrite_output=False, **kwargs):
+    def generate_psds(self, start: dt.datetime, end: dt.datetime, max_files=6, overwrite_output=True, **kwargs):
         """
         Pull ts files from aws and create PSD arrays of them by converting to wav files.
 
@@ -106,10 +112,10 @@ class NoiseAnalysisPipeline:
         )
 
         result = []
-        while len(result) < max_files and not stream.is_stream_over():
+        while (max_files is None or (len(result) < max_files)) and not stream.is_stream_over():
             wav_file_path, clip_start_time, current_clip_name = stream.get_next_clip()
             if wav_file_path is not None:
-                df = wav_to_array(wav_file_path, **kwargs)
+                df = wav_to_array(wav_file_path, delta_t=self.delta_t, delta_f=self.delta_f, **kwargs)
                 result.append(df)
 
         return result
@@ -131,13 +137,13 @@ class NoiseAnalysisPipeline:
         # Save file
         save_folder = pqt_folder_override or self.pqt_folder
         os.makedirs(save_folder, exist_ok=True)
-        fileName = self.file_connector.create_filename(start, end, 1, '3rd-octet')
+        fileName = self.file_connector.create_filename(start, end, self.delta_t, self.delta_f)
         filePath = os.path.join(save_folder, fileName)
         pds_frame.to_parquet(filePath)
 
         # Upload
         if upload_to_s3:
-            self.file_connector.upload_file(filePath, start, end, 1, '3rd-octet')
+            self.file_connector.upload_file(filePath, start, end, self.delta_t, self.delta_f)
 
     def create_spectogram(file):
         """
