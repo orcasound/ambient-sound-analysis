@@ -131,7 +131,17 @@ def select_spec_case(plot_path, folder_path, pcen=False, wavelet=False):
         spec_plot_and_save(spectrogram_data, f_name, plot_path)
 
 
-def wav_to_array(filepath, t0=datetime.datetime.now(), delta_t=1, delta_f=10, pcen=False, wavelet=False, ref=np.max, bands=None):
+def wav_to_array(filepath, 
+                 t0=datetime.datetime.now(), 
+                 delta_t=1, 
+                 delta_f=10, 
+                 transforms=[
+                    librosa.core.pcen, 
+                    denoise_wavelet
+                ], 
+                ref=np.max,
+                bands=None
+    ):
     """
     This function converts a wavfile to a dataframe of power spectral density, with the index as the timestamp from the start of the wav file and the columns as the frequency bin.  This function also calculates the broadband average noise level of the input wavefile before the dB conversion per time step after the FFT calculation.  
 
@@ -143,9 +153,9 @@ def wav_to_array(filepath, t0=datetime.datetime.now(), delta_t=1, delta_f=10, pc
         to: datetime.  starting time of the recording. 
         hop_length: int. number of audio samples between adjacent STFT columns.  See librosa docs for more info. 
         n_fft: int. number of points in the acquired time-domain signal.  delta F = sample rate/n_fft
-        pcen: binary. set to True to apply PCEN
-        wavelet: binary. set to True to apply wavelet denoising
+        transforms: List of functions to apply to DB-spectogram before reducing to bands. Functions must take in single spectogram as argument and return same. Default is to apply PCEN and wavelet denoising.
         ref: float.  reference level for the amplitude to dB conversion.  must be an absolute value, not dB. 
+        bands: Octave bands to generate
 
     Returns:
         Tuple of (df1, df2)
@@ -162,14 +172,11 @@ def wav_to_array(filepath, t0=datetime.datetime.now(), delta_t=1, delta_f=10, pc
     secs = librosa.core.frames_to_time(np.arange(spec.shape[1]), sr=sr, n_fft=n_fft, hop_length=hop_length)
     times = [t0 + datetime.timedelta(seconds=x) for x in secs]
 
-    if pcen:
-        spec = librosa.core.pcen(spec)
-    if wavelet:
-        spec = im_bayes = denoise_wavelet(spec,
-                                multichannel=False,
-                                convert2ycbcr=False,
-                                method="BayesShrink",
-                                mode="soft")
+
+    # Apply transforms
+    for transform_func in transforms:
+        spec = transform_func(spec)
+
     rms = []
     delta_f = sr/n_fft
     DT = D_highres.transpose()
@@ -183,7 +190,7 @@ def wav_to_array(filepath, t0=datetime.datetime.now(), delta_t=1, delta_f=10, pc
     rms_df = rms_df.astype(float).round(2)
     rms_df.columns = rms_df.columns.map(str)
 
-    if bands != None:
+    if bands is not None:
         
         oct_unscaled, fm = spec_to_bands(np.abs(DT), bands, delta_f, freqs=freqs, ref=ref)
         oct_df = pd.DataFrame(oct_unscaled, columns=fm, index=times).astype(float).round(2)
