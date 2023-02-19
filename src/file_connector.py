@@ -103,7 +103,6 @@ class S3FileConnector:
         Get files within datetime range and matching optional sec and hz band requirements
 
         """
-        paginator = self.client.get_paginator("list_objects_v2")
 
         all_files = []
 
