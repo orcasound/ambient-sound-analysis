@@ -66,26 +66,6 @@ class NoiseAnalysisPipeline:
         except AttributeError:
             pass
 
-    # TODO
-    def get_data(hydrophone: str, target_date: dt.date, sec_per_sample=60, frequency_bands='octet', check_archive=True, if_missing='raise'):
-        """
-        Gets a days worth of pds data from target hydrophone.
-
-        * hydrophone: String name of hydrophone. Names include [rpi-orcasound-lab, bush-point...]
-        * target_date. Date to pull data for
-        * sec_per_sample: The number of seconds per row of data. Default is one minute per sample.
-        * frequency_bands: The bands of frequency in the result. CHoose from premade bands such as 'octet', 'thirds', 'octet-log' or enter an integer to specify the number of hz per band
-        * check_archive: Flag for whether to look in the archive before generating this data. Defaults to True.
-        * if_missing: Behavior to take if no archive data is available. Set to 'raise' to raise a lookupError for missing data, 'generate' to create a new pds with the specifications 
-            if none exists, or 'ignore' to return an empty dataframe. Has no effect if chack_archive is set to False.
-
-        # Return
-        Dataframe representing one days worth of psd data at desired specs. Rows are timestamps, columns are frequency bands.
-        
-        """
-
-        # TODO
-
     def generate_psds(self, start: dt.datetime, end: dt.datetime, max_files=6, overwrite_output=True, **kwargs):
         """
         Pull ts files from aws and create PSD arrays of them by converting to wav files.
@@ -150,22 +130,25 @@ class NoiseAnalysisPipeline:
 
         return filePath
 
-    def create_spectogram(file):
+    def generate_parquet_file_batch(self, start: dt.datetime, num_files: int, file_length:dt.timedelta, **kwargs):
         """
-        Create a spectrogram from a wav file.
+            Generate a range of parquet files, starting at starttime with given length.
 
-        * file: File handle or path of wav file
-        * sample_rate: Rate in samples per second. Leave as none to use the sample rate of the wav file
+            Ex: To generate a weeks worth of data in 1-day sizes, call generate_parquet_file_batch(startDate, 7, timedelta(days=1))
 
-        # Return
+            * start: Datetime, start of first file to generate
+            * num_files: NUmber of files to generate
+            * file_length: The length in time of each file.
+            * kwargs: Other kwargs are passed to generate_parquet_file function
 
-        Tuple of frequencies, times, spectrogram
+            # Return
+            List of filepaths generated
         """
-        sample_rate, samples = wavfile.read(file)
 
-        # Average channels if more than 1
-        if len(samples.shape) > 1 and samples.shape[1] > 1:
-            samples = np.mean(samples, axis=1)
-
-        frequencies, times, spectrogram = signal.spectrogram(samples, sample_rate)
-        return frequencies, times, spectrogram
+        file_paths = []
+        for i in range(num_files):
+            startTime = start + file_length*i
+            endTime = startTime + file_length
+            file_paths.append(self.generate_parquet_file(startTime, endTime, **kwargs))
+        
+        return file_paths
