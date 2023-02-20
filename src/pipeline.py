@@ -53,16 +53,6 @@ def ts_to_array(start_date: dt.date, end_date: dt.date, wav_folder, max_files=6,
     * max_files: Maximum number of wav files to generate. Use to help limit compute and egress whiel testing.
     * overwrite_output: Automatically overwrite existing wav files. If False, will prompt before overwriting
     * kwargs: Other keyword args are passed to wav_to_array
-        * filepath: file path to .wav
-        * t0: datetime.  starting time of the recording. 
-        * delta_t: float.  time step in seconds. default=1.
-        * delta_f: int. fequency step in Hz.  default=10.
-        * pcen: binary. set to True to apply PCEN
-        * wavelet: binary. set to True to apply wavelet denoising
-        * ref: float.  reference level for the amplitude to dB conversion.  must be an absolute value, not dB. 
-        * bands: int. default=None. If not None this value selects how many octave subdivisions the frequency spectrum should 
-          be divided into, where each frequency step is 1/Nth of an octave with N=bands. Based on the ISO R series.
-          Accepts values 1, 3, 6, 12, or 24.  
 
     # Return
 
