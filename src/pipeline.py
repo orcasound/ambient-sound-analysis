@@ -68,39 +68,43 @@ class NoiseAnalysisPipeline:
         except AttributeError:
             pass
 
-    def generate_psds(self, start: dt.datetime, end: dt.datetime, max_files=6, overwrite_output=True, **kwargs):
+    def generate_psds(self, start: dt.datetime, end: dt.datetime, max_files=None, polling_interval=600, overwrite_output=True, **kwargs):
         """
         Pull ts files from aws and create PSD arrays of them by converting to wav files.
 
         * start_date: First date to pull files for
         * end_date: Last date to collect files for
         * max_files: Maximum number of wav files to generate. Use to help limit compute and egress whiel testing.
+        * polling_interval: Int, size in secconds of intermediate wav files to generate.
         * overwrite_output: Automatically overwrite existing wav files. If False, will prompt before overwriting
         * kwargs: Other keyword args are passed to wav_to_array
 
         # Return
 
-        List of PSDs, one per wav file generated
+        Tuple of lists. First is psds and second is broadbands. Each list has one entry per wav_file generated
 
         """
 
         stream = DateRangeHLSStream(
             'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
-            60,
+            polling_interval,
             time.mktime(start.timetuple()),
             time.mktime(end.timetuple()),
             self.wav_folder,
             overwrite_output
         )
 
-        result = []
-        while (max_files is None or (len(result) < max_files)) and not stream.is_stream_over():
-            wav_file_path, clip_start_time, current_clip_name = stream.get_next_clip()
+        psd_result = []
+        broadband_result = []
+        while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
+            wav_file_path, _, _ = stream.get_next_clip()
             if wav_file_path is not None:
-                df = wav_to_array(wav_file_path, delta_t=self.delta_t, delta_f=self.delta_f, **kwargs)
-                result.append(df)
+                dfs = wav_to_array(wav_file_path, delta_t=self.delta_t, delta_f=self.delta_f, **kwargs)
+                print(dfs[0])
+                psd_result.append(dfs[0])
+                broadband_result.append(dfs[1])
 
-        return result
+        return psd_result, broadband_result
 
     def generate_parquet_file(self, start: dt.datetime, end: dt.datetime, pqt_folder_override=None, upload_to_s3=False):
         """
@@ -116,8 +120,8 @@ class NoiseAnalysisPipeline:
         """
 
         # Create datafame
-        psds = self.generate_psds(start, end, overwrite_output=True)
-        pds_frame = pd.concat(list(zip(*psds))[0])
+        psds = self.generate_psds(start, end, overwrite_output=True)[0]
+        pds_frame = pd.concat(psds)
 
         # Save file
         save_folder = pqt_folder_override or self.pqt_folder
