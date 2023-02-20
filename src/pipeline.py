@@ -27,7 +27,9 @@ class NoiseAnalysisPipeline:
         * pqt_folder: Local folder to store pqt files in. Defaults to Temporary Directory
         * delta_f: The number of hertz per band
         * delta_t: The number of seconds per sample
-        * bands: #TODO: What do bands do?
+        * bands: int. default=None. If not None this value selects how many octave subdivisions the frequency spectrum should 
+          be divided into, where each frequency step is 1/Nth of an octave with N=bands. Based on the ISO R series.
+          Accepts values 1, 3, 6, 12, or 24.
         """
 
         # Conenctions
