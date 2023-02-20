@@ -136,8 +136,7 @@ def wav_to_array(filepath,
                  delta_t=1, 
                  delta_f=10, 
                  transforms=[
-                    librosa.core.pcen, 
-                    denoise_wavelet
+                    wavelet_denoising
                 ], 
                 ref=np.max,
                 bands=None
