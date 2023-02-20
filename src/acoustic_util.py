@@ -153,9 +153,12 @@ def wav_to_array(filepath,
         delta_t: Int, number of seconds per sample
         delta_f: Int, number of hz per frequency band
         n_fft: int. number of points in the acquired time-domain signal.  delta F = sample rate/n_fft
-        transforms: List of functions to apply to DB-spectogram before reducing to bands. Functions must take in single spectogram as argument and return same. Default is to apply PCEN and wavelet denoising.
+        transforms: List of functions to apply to DB-spectogram before reducing to bands. 
+          Functions must take in single spectogram as argument and return same. Default is to apply PCEN and wavelet denoising.
         ref: float.  reference level for the amplitude to dB conversion.  must be an absolute value, not dB. 
-        bands: Octave bands to generate # TODO: What format?
+        bands: int. default=None. If not None this value selects how many octave subdivisions the frequency spectrum should 
+          be divided into, where each frequency step is 1/Nth of an octave with N=bands. Based on the ISO R series.
+          Accepts values 1, 3, 6, 12, or 24.
 
     Returns:
         Tuple of (df1, df2)
