@@ -18,6 +18,9 @@ class S3FileConnector:
         """
         self.bucket = hydrophone.value.bucket
         self.ref_folder = hydrophone.value.ref_folder
+        self.save_bucket = hydrophone.value.save_bucket
+        self.save_folder = hydrophone.value.save_folder
+
         self.client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
         self.resource = boto3.resource('s3', config=Config(signature_version=UNSIGNED)).Bucket(self.bucket)
 
@@ -77,7 +80,7 @@ class S3FileConnector:
             opened_file = False
         
         try:
-            response = self.client.upload_fileobj(file, self.bucket.value, file_name)
+            response = self.client.upload_fileobj(file, self.save_bucket, self.save_folder + "/" + file_name)
         except ClientError as e:
             logging.error(e)
             return False
