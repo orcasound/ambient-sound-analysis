@@ -1,12 +1,14 @@
+import os
+import datetime
+
 import librosa
 import librosa.display
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from skimage.restoration import denoise_wavelet
-import os
 import numpy as np
 import pandas as pd
-import datetime
+
 
 
 def apply_per_channel_energy_norm(spectrogram):
@@ -128,7 +130,17 @@ def select_spec_case(plot_path, folder_path, pcen=False, wavelet=False):
             spectrogram_data = wavelet_denoising(pcen_spec)
         spec_plot_and_save(spectrogram_data, f_name, plot_path)
 
-def wav_to_array(filepath, t0=datetime.datetime.now(), delta_t=1, delta_f=10, pcen=False, wavelet=False, ref=np.max, bands=None):
+
+def wav_to_array(filepath, 
+                 t0=datetime.datetime.now(), 
+                 delta_t=1, 
+                 delta_f=10, 
+                 transforms=[
+                    wavelet_denoising
+                ], 
+                ref=np.max,
+                bands=None
+    ):
     """
     This function converts a wavfile to a dataframe of power spectral density, with the index as the timestamp from the start of the wav file and the columns as the frequency bin.  This function also calculates the broadband average noise level of the input wavefile before the dB conversion per time step after the FFT calculation.  
 
@@ -138,11 +150,15 @@ def wav_to_array(filepath, t0=datetime.datetime.now(), delta_t=1, delta_f=10, pc
     Args:
         filepath: file path to .wav
         to: datetime.  starting time of the recording. 
-        hop_length: int. number of audio samples between adjacent STFT columns.  See librosa docs for more info. 
+        delta_t: Int, number of seconds per sample
+        delta_f: Int, number of hz per frequency band
         n_fft: int. number of points in the acquired time-domain signal.  delta F = sample rate/n_fft
-        pcen: binary. set to True to apply PCEN
-        wavelet: binary. set to True to apply wavelet denoising
+        transforms: List of functions to apply to DB-spectogram before reducing to bands. 
+          Functions must take in single spectogram as argument and return same. Default is to apply PCEN and wavelet denoising.
         ref: float.  reference level for the amplitude to dB conversion.  must be an absolute value, not dB. 
+        bands: int. default=None. If not None this value selects how many octave subdivisions the frequency spectrum should 
+          be divided into, where each frequency step is 1/Nth of an octave with N=bands. Based on the ISO R series.
+          Accepts values 1, 3, 6, 12, or 24.
 
     Returns:
         Tuple of (df1, df2)
@@ -159,14 +175,11 @@ def wav_to_array(filepath, t0=datetime.datetime.now(), delta_t=1, delta_f=10, pc
     secs = librosa.core.frames_to_time(np.arange(spec.shape[1]), sr=sr, n_fft=n_fft, hop_length=hop_length)
     times = [t0 + datetime.timedelta(seconds=x) for x in secs]
 
-    if pcen:
-        spec = librosa.core.pcen(spec)
-    if wavelet:
-        spec = im_bayes = denoise_wavelet(spec,
-                                multichannel=False,
-                                convert2ycbcr=False,
-                                method="BayesShrink",
-                                mode="soft")
+
+    # Apply transforms
+    for transform_func in transforms:
+        spec = transform_func(spec)
+
     rms = []
     delta_f = sr/n_fft
     DT = D_highres.transpose()
@@ -180,7 +193,7 @@ def wav_to_array(filepath, t0=datetime.datetime.now(), delta_t=1, delta_f=10, pc
     rms_df = rms_df.astype(float).round(2)
     rms_df.columns = rms_df.columns.map(str)
 
-    if bands != None:
+    if bands is not None:
         
         oct_unscaled, fm = spec_to_bands(np.abs(DT), bands, delta_f, freqs=freqs, ref=ref)
         oct_df = pd.DataFrame(oct_unscaled, columns=fm, index=times).astype(float).round(2)
@@ -188,6 +201,7 @@ def wav_to_array(filepath, t0=datetime.datetime.now(), delta_t=1, delta_f=10, pc
         return oct_df, rms_df
     else:
         return df, rms_df
+
 
 def ancient_ambient(df):
     """
@@ -199,6 +213,7 @@ def ancient_ambient(df):
     """
 
     return np.percentile(df, 5)
+
 
 def spec_plot(df, sr=48000, hop_length=256):
     """
@@ -223,6 +238,7 @@ def spec_plot(df, sr=48000, hop_length=256):
     fig.gca().xaxis.set_major_locator(mdates.SecondLocator())
     plt.gcf().autofmt_xdate()
 
+
 def filt_gain(f, fm, b):
     """
     f: array of frequencies to apply gain to
@@ -242,6 +258,7 @@ def filt_gain(f, fm, b):
 
     return np.sqrt(np.divide(ones, np.add(ones, h)))
 
+
 def band_power(psd, g, delta_f):
     """
     https://www.ap.com/technical-library/deriving-fractional-octave-spectra-from-the-fft-with-apx/
@@ -253,6 +270,7 @@ def band_power(psd, g, delta_f):
     exp = np.full(len(psd), 2.0)
     x = np.multiply(psd, np.power(g, exp))
     return np.sqrt(delta_f*np.sum(x))
+
 
 def octave_band(N, freqs):
     """
@@ -347,6 +365,7 @@ def octave_band(N, freqs):
     else:
         return bands[N], filters[N]
 
+
 def spec_to_bands(psd, N, delta_f, freqs, ref):
     """
 
@@ -360,3 +379,26 @@ def spec_to_bands(psd, N, delta_f, freqs, ref):
     octaves_scaled = librosa.amplitude_to_db(octaves, ref=ref)
 
     return octaves_scaled, bands
+
+def plot_noise(testdf, name, output_path=None, save = False):
+    fig, ax = plt.subplots()
+    spec = ax.pcolormesh(testdf.index, testdf.columns, testdf.values.transpose())
+    ax.set_yscale('log')
+    ax.set_ylim([50, 20000])
+    fig.autofmt_xdate(rotation=45)
+    fig.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    #fig.gca().xaxis.set_major_locator(mdates.SecondLocater())
+    fig.colorbar(spec,ax=ax, label="dB relative to ancient ambient")
+    fig.set_size_inches(10, 10)
+    plt.title(name)
+    # os.chdir(plotPath)
+    if save:
+        fig.savefig(output_path,
+                    dpi=80,
+                    bbox_inches="tight",
+                    pad_inches=0.0)
+        
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+        plt.close(fig)
+    

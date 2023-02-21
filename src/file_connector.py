@@ -1,45 +1,44 @@
 import datetime as dt
 import logging
-from enum import Enum
 
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-     
-class Bucket(Enum):
-    """
-    Enum for orcasound AWS S3 Buckets
-    """
-
-    BUSH_POINT = ("streaming-orcasound-net", "rpi_bush_point")
-    ORCASOUND_LAB = ("streaming-orcasound-net", "rpi_orcasound_lab")
-    PORT_TOWNSEND = ("streaming-orcasound-net", "rpi_port_townsend")
-    SUNSET_BAY = ("streaming-orcasound-net", "rpi_sunset_bay")
-    SANDBOX = ("acoustic-sandbox", "orcasounds")
+from .hydrophone import Hydrophone
 
 class S3FileConnector:
 
     DT_FORMAT = "%Y%m%dT%H%M%S"
 
-    def __init__(self, bucket: Bucket):
+    def __init__(self, hydrophone: Hydrophone):
         """
         S3File Connector maintains a connection to an AWS s3 bucket.
         """
-        self.bucket = bucket.value[0]
-        self.ref_folder = bucket.value[1]
+        self.bucket = hydrophone.value.bucket
+        self.ref_folder = hydrophone.value.ref_folder
+        self.save_bucket = hydrophone.value.save_bucket
+        self.save_folder = hydrophone.value.save_folder
+
         self.client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
         self.resource = boto3.resource('s3', config=Config(signature_version=UNSIGNED)).Bucket(self.bucket)
 
     @classmethod
-    def create_filename(cls, start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands):
+    def create_filename(cls, start: dt.datetime, end: dt.datetime, secs_per_sample: int, delta_hz: int = None, octave_bands: int = None):
         """ Create a filename with the given daterange and granularity. Dates must be in UTC """
+
+        if delta_hz is not None:
+            freq_str = str(delta_hz) + "hz"
+        elif octave_bands is not None:
+            freq_str = str(octave_bands) + "oct"
+        else:
+            raise ValueError("One of delta_hz or octave_bands must be provided.")
+        
 
         start_str = start.strftime(cls.DT_FORMAT)
         end_str = end.strftime(cls.DT_FORMAT)
         sec_str = f"{secs_per_sample}s"
-        freq_str = str(hz_bands) + ('hz' if isinstance(hz_bands, int) else '')
 
         return f"{start_str}_{end_str}_{sec_str}_{freq_str}.parquet"
 
@@ -49,19 +48,22 @@ class S3FileConnector:
         Helper function to extract data from filename.
 
         # Return
-        startdt, enddt, secs_per_sample, hz_band list
+        startdt, enddt, secs_per_sample, freq_value, freq_type list
         """
 
         args = filename.replace(".parquet", "").split("_")
-        print(args)
+
         args[0] = dt.datetime.strptime(args[0], cls.DT_FORMAT)
         args[1] = dt.datetime.strptime(args[1], cls.DT_FORMAT)
         args[2] = int(args[2].replace("s", ""))
-        args[3] = int(args[3].replace("hz", ""))
-        try:
-            args[3] = int(args[3])
-        except ValueError:
-            pass
+        
+        # Parse frequency
+        if "hz" in args[3]:
+            args[3] = int(args[3].replace("hz", ""))
+            args.append("delta_hz")
+        elif "oct" in args[3]:
+            args[3] = int(args[3].replace("oct", ""))
+            args.append("octave_bands")
 
         return args
 
@@ -88,7 +90,7 @@ class S3FileConnector:
             opened_file = False
         
         try:
-            response = self.client.upload_fileobj(file, self.bucket.value, file_name)
+            response = self.client.upload_fileobj(file, self.save_bucket, self.save_folder + "/" + file_name)
         except ClientError as e:
             logging.error(e)
             return False

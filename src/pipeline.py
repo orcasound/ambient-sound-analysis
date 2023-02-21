@@ -1,101 +1,162 @@
 # Native imports
 import datetime as dt
+import os
+import tempfile
 import time
 
 # Third part imports
 import numpy as np
+import pandas as pd
 from scipy import signal
 from scipy.io import wavfile
 
 # Local imports
 from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
-from util import wav_to_array
+from .acoustic_util import wav_to_array
+from .hydrophone import Hydrophone
+from .file_connector import S3FileConnector
 
-def ts_to_spectrogram(start_date: dt.date, end_date: dt.date, wav_folder, max_files=5):
-    """
-    Pull ts files from aws and create spectrograms of them by converting to wav files.
+class NoiseAnalysisPipeline:
 
-    * start_date: First date to pull files for
-    * end_date: Last date to collect files for
-    * wav_folder: folder path to store wav files in
-    * max_files: Maximum number of wav files to generate. Use to help limit compute and egress whiel testing.
+    def __init__(self, hydrophone: Hydrophone, delta_f, delta_t, bands=None, wav_folder=None, pqt_folder=None):
+        """
+        Pipeline object for generating rolled-up PDS parquet files. 
 
-    # Return
+        * hydrophone: Hydrophone enum that contains all conenction info to S3 buccket.
+        * wav_folder: Local folder to store wav files in. Defaults to Temporary Directory
+        * pqt_folder: Local folder to store pqt files in. Defaults to Temporary Directory
+        * delta_f: The number of hertz per band
+        * delta_t: The number of seconds per sample
+        * bands: int. default=None. If not None this value selects how many octave subdivisions the frequency spectrum should 
+          be divided into, where each frequency step is 1/Nth of an octave with N=bands. Based on the ISO R series.
+          Accepts values 1, 3, 6, 12, or 24.
+        """
 
-    List of spectrograms, one per wav file generated
+        # Conenctions
+        self.hydrophone = hydrophone.value
+        self.file_connector = S3FileConnector(hydrophone)
 
-    """
+        # Local storage
+        if wav_folder:
+            self.wav_folder = wav_folder
+            self.wav_folder_td = None
+        else:
+            self.wav_folder_td = tempfile.TemporaryDirectory()
+            self.wav_folder = self.wav_folder_td.name
+        
+        if pqt_folder:
+            self.pqt_folder = pqt_folder
+            self.pqt_folder_td = None
+        else:
+            self.pqt_folder_td = tempfile.TemporaryDirectory()
+            self.pqt_folder = self.pqt_folder_td.name
 
-    stream = DateRangeHLSStream(
-        'https://s3-us-west-2.amazonaws.com/streaming-orcasound-net/rpi_orcasound_lab',
-        60,
-        time.mktime(start_date.timetuple()),
-        time.mktime(end_date.timetuple()),
-        wav_folder
-    )
+        # Config
+        self.delta_f = delta_f
+        self.delta_t = delta_t
+        self.bands = bands
 
-    result = []
-    while len(result) <= max_files and not stream.is_stream_over():
-        wav_file_path, clip_start_time, current_clip_name = stream.get_next_clip()
-        frequencies, times, spectrogram = create_spectogram(wav_file_path)
-        result.append(spectrogram)
+    def __del__(self):
+        """"
+        Remove Temp Dirs on delete
+        """
 
-    return result
+        try:
+            self.wav_folder_td.cleanup()
+        except AttributeError:
+            pass
+        try:
+            self.pqt_folder_td.cleanup()
+        except AttributeError:
+            pass
 
+    def generate_psds(self, start: dt.datetime, end: dt.datetime, max_files=None, polling_interval=600, overwrite_output=True, **kwargs):
+        """
+        Pull ts files from aws and create PSD arrays of them by converting to wav files.
 
-def ts_to_array(start_date: dt.date, end_date: dt.date, wav_folder, max_files=6, overwrite_output=False, **kwargs):
-    """
-    Pull ts files from aws and create PSD arrays of them by converting to wav files.
+        * start_date: First date to pull files for
+        * end_date: Last date to collect files for
+        * max_files: Maximum number of wav files to generate. Use to help limit compute and egress whiel testing.
+        * polling_interval: Int, size in secconds of intermediate wav files to generate.
+        * overwrite_output: Automatically overwrite existing wav files. If False, will prompt before overwriting
+        * kwargs: Other keyword args are passed to wav_to_array
 
-    * start_date: First date to pull files for
-    * end_date: Last date to collect files for
-    * wav_folder: folder path to store wav files in
-    * max_files: Maximum number of wav files to generate. Use to help limit compute and egress whiel testing.
-    * overwrite_output: Automatically overwrite existing wav files. If False, will prompt before overwriting
-    * kwargs: Other keyword args are passed to wav_to_array
+        # Return
 
-    # Return
+        Tuple of lists. First is psds and second is broadbands. Each list has one entry per wav_file generated
 
-    List of PSDs, one per wav file generated
+        """
 
-    """
+        stream = DateRangeHLSStream(
+            'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
+            polling_interval,
+            time.mktime(start.timetuple()),
+            time.mktime(end.timetuple()),
+            self.wav_folder,
+            overwrite_output
+        )
 
-    stream = DateRangeHLSStream(
-        'https://s3-us-west-2.amazonaws.com/streaming-orcasound-net/rpi_orcasound_lab',
-        60,
-        time.mktime(start_date.timetuple()),
-        time.mktime(end_date.timetuple()),
-        wav_folder,
-        overwrite_output
-    )
+        psd_result = []
+        broadband_result = []
+        while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
+            wav_file_path, _, _ = stream.get_next_clip()
+            if wav_file_path is not None:
+                dfs = wav_to_array(wav_file_path, delta_t=self.delta_t, delta_f=self.delta_f, **kwargs)
+                print(dfs[0])
+                psd_result.append(dfs[0])
+                broadband_result.append(dfs[1])
 
-    result = []
-    while len(result) < max_files and not stream.is_stream_over():
-        wav_file_path, clip_start_time, current_clip_name = stream.get_next_clip()
-        if wav_file_path is not None:
-            df = wav_to_array(wav_file_path, **kwargs)
-            result.append(df)
+        return psd_result, broadband_result
 
-    return result
+    def generate_parquet_file(self, start: dt.datetime, end: dt.datetime, pqt_folder_override=None, upload_to_s3=False):
+        """
+        Create a parquet file of the psd at the given daterange.
 
+        * Start: datetime, start of data to poll
+        * end: datetime, end of data to poll
+        * pqt_folder_override: Overide the object level settings for where to save pqt files.
+        * upload_to_s3: Boolean, set to true to upload file to S3 after saving
 
+        # Return
+        Filepath of generated pqt file.
+        """
 
-def create_spectogram(file):
-    """
-    Create a spectrogram from a wav file.
+        # Create datafame
+        psds = self.generate_psds(start, end, overwrite_output=True)[0]
+        pds_frame = pd.concat(psds)
 
-    * file: File handle or path of wav file
-    * sample_rate: Rate in samples per second. Leave as none to use the sample rate of the wav file
+        # Save file
+        save_folder = pqt_folder_override or self.pqt_folder
+        os.makedirs(save_folder, exist_ok=True)
+        fileName = self.file_connector.create_filename(start, end, self.delta_t, self.delta_f)
+        filePath = os.path.join(save_folder, fileName)
+        pds_frame.to_parquet(filePath)
 
-    # Return
+        # Upload
+        if upload_to_s3:
+            self.file_connector.upload_file(filePath, start, end, self.delta_t, self.delta_f)
 
-    Tuple of frequencies, times, spectrogram
-    """
-    sample_rate, samples = wavfile.read(file)
+        return filePath
 
-    # Average channels if more than 1
-    if len(samples.shape) > 1 and samples.shape[1] > 1:
-        samples = np.mean(samples, axis=1)
+    def generate_parquet_file_batch(self, start: dt.datetime, num_files: int, file_length:dt.timedelta, **kwargs):
+        """
+            Generate a range of parquet files, starting at starttime with given length.
 
-    frequencies, times, spectrogram = signal.spectrogram(samples, sample_rate)
-    return frequencies, times, spectrogram
+            Ex: To generate a weeks worth of data in 1-day sizes, call generate_parquet_file_batch(startDate, 7, timedelta(days=1))
+
+            * start: Datetime, start of first file to generate
+            * num_files: NUmber of files to generate
+            * file_length: The length in time of each file.
+            * kwargs: Other kwargs are passed to generate_parquet_file function
+
+            # Return
+            List of filepaths generated
+        """
+
+        file_paths = []
+        for i in range(num_files):
+            startTime = start + file_length*i
+            endTime = startTime + file_length
+            file_paths.append(self.generate_parquet_file(startTime, endTime, **kwargs))
+        
+        return file_paths
