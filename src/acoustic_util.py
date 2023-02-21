@@ -379,3 +379,26 @@ def spec_to_bands(psd, N, delta_f, freqs, ref):
     octaves_scaled = librosa.amplitude_to_db(octaves, ref=ref)
 
     return octaves_scaled, bands
+
+def plot_noise(testdf, name, output_path=None, save = False):
+    fig, ax = plt.subplots()
+    spec = ax.pcolormesh(testdf.index, testdf.columns, testdf.values.transpose())
+    ax.set_yscale('log')
+    ax.set_ylim([50, 20000])
+    fig.autofmt_xdate(rotation=45)
+    fig.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    #fig.gca().xaxis.set_major_locator(mdates.SecondLocater())
+    fig.colorbar(spec,ax=ax, label="dB relative to ancient ambient")
+    fig.set_size_inches(10, 10)
+    plt.title(name)
+    # os.chdir(plotPath)
+    if save:
+        fig.savefig(output_path,
+                    dpi=80,
+                    bbox_inches="tight",
+                    pad_inches=0.0)
+        
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+        plt.close(fig)
+    

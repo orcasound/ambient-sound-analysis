@@ -6,7 +6,7 @@ class Hydrophone(Enum):
     Enum for orcasound hydrophones, including AWS S3 Bucket info
     """
 
-    HPhoneTup = namedtuple("Hydrophone", "name bucket", "ref_folder")
+    HPhoneTup = namedtuple("Hydrophone", "name bucket ref_folder")
 
     BUSH_POINT = HPhoneTup("bush_point", "streaming-orcasound-net", "rpi_bush_point")
     ORCASOUND_LAB = HPhoneTup("orcasound_lab", "streaming-orcasound-net", "rpi_orcasound_lab")
