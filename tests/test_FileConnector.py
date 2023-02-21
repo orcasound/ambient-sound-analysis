@@ -19,5 +19,6 @@ def test_parse_filename():
         dt.datetime(2023, 1, 1, 6, 30),
         dt.datetime(2023, 1, 1, 12, 30),
         60,
-        100
+        100,
+        "delta_hz"
     ]

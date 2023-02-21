@@ -25,13 +25,20 @@ class S3FileConnector:
         self.resource = boto3.resource('s3', config=Config(signature_version=UNSIGNED)).Bucket(self.bucket)
 
     @classmethod
-    def create_filename(cls, start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands):
+    def create_filename(cls, start: dt.datetime, end: dt.datetime, secs_per_sample: int, delta_hz: int = None, octave_bands: int = None):
         """ Create a filename with the given daterange and granularity. Dates must be in UTC """
+
+        if delta_hz is not None:
+            freq_str = str(delta_hz) + "hz"
+        elif octave_bands is not None:
+            freq_str = str(octave_bands) + "oct"
+        else:
+            raise ValueError("One of delta_hz or octave_bands must be provided.")
+        
 
         start_str = start.strftime(cls.DT_FORMAT)
         end_str = end.strftime(cls.DT_FORMAT)
         sec_str = f"{secs_per_sample}s"
-        freq_str = str(hz_bands) + ('hz' if isinstance(hz_bands, int) else '')
 
         return f"{start_str}_{end_str}_{sec_str}_{freq_str}.parquet"
 
@@ -41,19 +48,22 @@ class S3FileConnector:
         Helper function to extract data from filename.
 
         # Return
-        startdt, enddt, secs_per_sample, hz_band list
+        startdt, enddt, secs_per_sample, freq_value, freq_type list
         """
 
         args = filename.replace(".parquet", "").split("_")
-        print(args)
+
         args[0] = dt.datetime.strptime(args[0], cls.DT_FORMAT)
         args[1] = dt.datetime.strptime(args[1], cls.DT_FORMAT)
         args[2] = int(args[2].replace("s", ""))
-        args[3] = int(args[3].replace("hz", ""))
-        try:
-            args[3] = int(args[3])
-        except ValueError:
-            pass
+        
+        # Parse frequency
+        if "hz" in args[3]:
+            args[3] = int(args[3].replace("hz", ""))
+            args.append("delta_hz")
+        elif "oct" in args[3]:
+            args[3] = int(args[3].replace("oct", ""))
+            args.append("octave_bands")
 
         return args
 
