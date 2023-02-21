@@ -1,25 +1,15 @@
 import datetime as dt
+from src.hydrophone import Hydrophone
+from src.pipeline import NoiseAnalysisPipeline
 
-import matplotlib.pyplot as plt
+# Create Pipeline
+pipeline = NoiseAnalysisPipeline(Hydrophone.ORCASOUND_LAB, pqt_folder='pqt', delta_f=1000, delta_t=1)
 
-# Local imports
-from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
-from src import pipeline
+# Generate Parquet File
+pipeline.generate_parquet_file(dt.date(2022, 11, 5), dt.date(2022, 11, 6))
 
+# Generate Week of data
+pipeline.generate_parquet_file_batch(dt.date(2022, 10, 1), 7, dt.timedelta(days=1))
 
-
-
-# Create spectrograms and visualize one
-grams = pipeline.ts_to_spectrogram(
-    dt.date(2022, 11, 5),
-    dt.date(2022, 11, 6),
-    'wav'
-)
-
-
-plt.pcolormesh(grams[0])
-plt.ylabel('Frequency [Hz]')
-plt.xlabel('Time ')
-plt.savefig('fig.png')
 
 
