@@ -8,8 +8,8 @@ class Hydrophone(Enum):
 
     HPhoneTup = namedtuple("Hydrophone", "name bucket ref_folder save_bucket save_folder")
 
-    BUSH_POINT = HPhoneTup("bush_point", "streaming-orcasound-net", "rpi_bush_point", "acoustic-sandbox", "bush_point")
-    ORCASOUND_LAB = HPhoneTup("orcasound_lab", "streaming-orcasound-net", "rpi_orcasound_lab", "acoustic-sandbox", "orcasound_lab")
-    PORT_TOWNSEND = HPhoneTup("port_townsend", "streaming-orcasound-net", "rpi_port_townsend", "acoustic-sandbox", "port_townsend")
-    SUNSET_BAY = HPhoneTup("sunset_bay", "streaming-orcasound-net", "rpi_sunset_bay", "acoustic-sandbox", "sunset_bay")
-    SANDBOX = HPhoneTup("sandbox", "acoustic-sandbox", "orcasounds", "acoustic-sandbox", "orcasounds")
+    BUSH_POINT = HPhoneTup("bush_point", "streaming-orcasound-net", "rpi_bush_point", "acoustic-sandbox", "ambient-sound-analysis/bush_point")
+    ORCASOUND_LAB = HPhoneTup("orcasound_lab", "streaming-orcasound-net", "rpi_orcasound_lab", "acoustic-sandbox", "ambient-sound-analysis/orcasound_lab")
+    PORT_TOWNSEND = HPhoneTup("port_townsend", "streaming-orcasound-net", "rpi_port_townsend", "acoustic-sandbox", "ambient-sound-analysis/port_townsend")
+    SUNSET_BAY = HPhoneTup("sunset_bay", "streaming-orcasound-net", "rpi_sunset_bay", "acoustic-sandbox", "ambient-sound-analysis/sunset_bay")
+    SANDBOX = HPhoneTup("sandbox", "acoustic-sandbox", "ambient-sound-analysis", "acoustic-sandbox", "ambient-sound-analysis")

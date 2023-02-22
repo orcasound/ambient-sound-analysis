@@ -5,6 +5,7 @@ import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 from botocore.exceptions import ClientError
+from dotenv import load_dotenv
 
 from .hydrophone import Hydrophone
 
@@ -21,8 +22,9 @@ class S3FileConnector:
         self.save_bucket = hydrophone.value.save_bucket
         self.save_folder = hydrophone.value.save_folder
 
-        self.client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
-        self.resource = boto3.resource('s3', config=Config(signature_version=UNSIGNED)).Bucket(self.bucket)
+        load_dotenv('.aws-config')
+        self.client = boto3.client('s3')
+        self.resource = boto3.resource('s3').Bucket(self.bucket)
 
     @classmethod
     def create_filename(cls, start: dt.datetime, end: dt.datetime, secs_per_sample: int, delta_hz: int = None, octave_bands: int = None):
