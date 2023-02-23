@@ -99,14 +99,17 @@ class NoiseAnalysisPipeline:
         psd_result = []
         broadband_result = []
         while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
-            wav_file_path, _, _ = stream.get_next_clip()
+            wav_file_path, clip_start_time, _ = stream.get_next_clip()
+            start_time = [int(x) for x in clip_start_time.split('_')]
+            start_time = dt.datetime(*start_time)
             if wav_file_path is not None:
-                dfs = wav_to_array(wav_file_path, delta_t=self.delta_t, delta_f=self.delta_f, **kwargs)
+                dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=self.delta_t, delta_f=self.delta_f, transforms=[],
+                                   bands=self.bands, **kwargs)
                 print(dfs[0])
                 psd_result.append(dfs[0])
                 broadband_result.append(dfs[1])
 
-        return psd_result, broadband_result
+        return pd.concat(psd_result), pd.concat(broadband_result)
 
     def generate_parquet_file(self, start: dt.datetime, end: dt.datetime, pqt_folder_override=None, upload_to_s3=False):
         """
