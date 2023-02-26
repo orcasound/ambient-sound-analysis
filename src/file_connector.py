@@ -30,10 +30,10 @@ class S3FileConnector:
     def create_filename(cls, start: dt.datetime, end: dt.datetime, secs_per_sample: int, delta_hz: int = None, octave_bands: int = None):
         """ Create a filename with the given daterange and granularity. Dates must be in UTC """
 
-        if delta_hz is not None:
-            freq_str = str(delta_hz) + "hz"
-        elif octave_bands is not None:
+        if octave_bands is not None:
             freq_str = str(octave_bands) + "oct"
+        elif delta_hz is not None:
+            freq_str = str(delta_hz) + "hz"
         else:
             raise ValueError("One of delta_hz or octave_bands must be provided.")
         
