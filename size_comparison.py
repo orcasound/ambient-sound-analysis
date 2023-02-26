@@ -3,7 +3,7 @@ import os
 
 # Local imports
 from src import pipeline
-import util
+import src.acoustic_util as acoustic_util
 import pandas as pd
 import numpy as np
 
@@ -20,7 +20,7 @@ for i, hop_length in enumerate(hops):
         print("n_fft", n_fft)
 
         grams = [
-            util.wav_to_array(os.path.join('wav', f), hop_length=hop_length, n_fft=n_fft) 
+            acoustic_util.wav_to_array(os.path.join('wav', f), hop_length=hop_length, n_fft=n_fft) 
             for f in os.listdir('wav') if os.path.isfile(os.path.join('wav', f))
         ]
 
