@@ -18,15 +18,15 @@ from .file_connector import S3FileConnector
 
 class NoiseAnalysisPipeline:
 
-    def __init__(self, hydrophone: Hydrophone, delta_f, delta_t, bands=None, wav_folder=None, pqt_folder=None):
+    def __init__(self, hydrophone: Hydrophone, delta_t, delta_f, bands=None, wav_folder=None, pqt_folder=None):
         """
         Pipeline object for generating rolled-up PDS parquet files. 
 
         * hydrophone: Hydrophone enum that contains all conenction info to S3 buccket.
         * wav_folder: Local folder to store wav files in. Defaults to Temporary Directory
         * pqt_folder: Local folder to store pqt files in. Defaults to Temporary Directory
-        * delta_f: The number of hertz per band
         * delta_t: The number of seconds per sample
+        * delta_f: Int, The number of hertz per band.
         * bands: int. default=None. If not None this value selects how many octave subdivisions the frequency spectrum should 
           be divided into, where each frequency step is 1/Nth of an octave with N=bands. Based on the ISO R series.
           Accepts values 1, 3, 6, 12, or 24.
@@ -100,12 +100,13 @@ class NoiseAnalysisPipeline:
         broadband_result = []
         while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
             wav_file_path, clip_start_time, _ = stream.get_next_clip()
+            if clip_start_time is None:
+                continue
             start_time = [int(x) for x in clip_start_time.split('_')]
             start_time = dt.datetime(*start_time)
             if wav_file_path is not None:
                 dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=self.delta_t, delta_f=self.delta_f, transforms=[],
                                    bands=self.bands, **kwargs)
-                print(dfs[0])
                 psd_result.append(dfs[0])
                 broadband_result.append(dfs[1])
 
@@ -125,13 +126,12 @@ class NoiseAnalysisPipeline:
         """
 
         # Create datafame
-        psds = self.generate_psds(start, end, overwrite_output=True)[0]
-        pds_frame = pd.concat(psds)
+        pds_frame = self.generate_psds(start, end, overwrite_output=True)[0]
 
         # Save file
         save_folder = pqt_folder_override or self.pqt_folder
         os.makedirs(save_folder, exist_ok=True)
-        fileName = self.file_connector.create_filename(start, end, self.delta_t, self.delta_f)
+        fileName = self.file_connector.create_filename(start, end, self.delta_t, self.delta_f, octave_bands=self.bands)
         filePath = os.path.join(save_folder, fileName)
         pds_frame.to_parquet(filePath)
 
