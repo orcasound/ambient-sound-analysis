@@ -133,6 +133,7 @@ class NoiseAnalysisPipeline:
         os.makedirs(save_folder, exist_ok=True)
         fileName = self.file_connector.create_filename(start, end, self.delta_t, self.delta_f, octave_bands=self.bands)
         filePath = os.path.join(save_folder, fileName)
+        pds_frame.columns = pds_frame.columns.astype(str)
         pds_frame.to_parquet(filePath)
 
         # Upload
