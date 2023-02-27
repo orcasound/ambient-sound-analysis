@@ -34,7 +34,7 @@ def get_daily_df(target_date):
     df = df[~df.index.duplicated(keep='first')]
     return df
 
-def create_daily_noise_plot(start_date, num_days, band="63", mean_smoothing=500, error_smoothing=100):
+def create_daily_noise_summary_df(start_date, num_days):
     # Compile
     daily_dfs = [get_daily_df(start_date + dt.timedelta(days=i)) for i in range(num_days)]
     df = pd.concat(daily_dfs, axis=0)
@@ -45,6 +45,17 @@ def create_daily_noise_plot(start_date, num_days, band="63", mean_smoothing=500,
     mean_df = time_group.mean()
     min_df = time_group.min()
     max_df = time_group.max()
+
+    return {
+        "mean":mean_df, 
+        "min": min_df,
+        "max": max_df
+    }
+
+def plot_daily_noise(df_dict, band="63", mean_smoothing=500, error_smoothing=100):
+    mean_df = df_dict["mean"] 
+    min_df = df_dict["min"] 
+    max_df = df_dict["max"] 
 
     # PLot
     fig, ax = plt.subplots()
