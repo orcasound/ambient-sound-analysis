@@ -3,48 +3,35 @@ import pandas as pd
 import os
 from tempfile import TemporaryDirectory
 
-import matplotlib.pyplot as plt
 import streamlit as st
 
 # Local imports
-from src import pipeline
+from src import daily_noise
 
 # Title
-st.write("# Example Spectrograms")
+st.write("# Daily Noise Levels")
 
-# Demo data
-use_demo = st.checkbox("Use Demo Data", value=True)
+# Choose Hydrophone
+hydrophones = ["Orcasound Lab"]
+selected_hydrophone = st.selectbox(
+    'Hydrophone',
+    hydrophones
+)
 
-# Date
-as_of_date = st.date_input("Choose a day")
-
-# Create spectrograms
+# Get Dfs
 @st.cache
-def get_grams(as_of_date, use_demo=True):
-    if use_demo:
-        return [
-                pd.read_csv(f'sample_psds/{file_name}').to_numpy()
-                for file_name in os.listdir('sample_psds')
-        ]
-    else:
-        with TemporaryDirectory() as tmp_path:
-            return pipeline.ts_to_spectrogram(
-                as_of_date,
-                as_of_date + dt.timedelta(days=1),
-                tmp_path
-            )
-grams = get_grams(as_of_date, use_demo)
+def get_summary_dfs(hydrophone):
+    return daily_noise.create_daily_noise_summary_df(dt.date(2023, 2, 1), 2)
+summary_dfs = get_summary_dfs(selected_hydrophone)
 
-# Choose spectrogram
-gram_idx = st.selectbox(
-    'Spectrogram #',
-    range(len(grams))
+# Choose Band
+bands = summary_dfs["mean"].columns
+selected_band = st.selectbox(
+    'Band',
+    bands
 )
 
 # Display
-st.write(f"Spectrogram {gram_idx}")
-fig, ax = plt.subplots()
-plt.pcolormesh(grams[gram_idx])
-plt.ylabel('Frequency [Hz]')
-plt.xlabel('Time')
+st.write(f"Daily Noise in {selected_band} band")
+fig = daily_noise.plot_daily_noise(summary_dfs, band=selected_band)
 st.pyplot(fig)
