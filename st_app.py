@@ -26,12 +26,14 @@ summary_dfs = get_summary_dfs(selected_hydrophone)
 
 # Choose Band
 bands = summary_dfs["mean"].columns
-selected_band = st.selectbox(
+selected_band = st.select_slider(
     'Band',
     bands
 )
 
 # Display
-st.write(f"Daily Noise in {selected_band} band")
+st.write(f"Daily Noise in {selected_band}hz band")
 fig = daily_noise.plot_daily_noise(summary_dfs, band=selected_band)
+fig.patch.set_facecolor(None)
+fig.patch.set_alpha(0.0)
 st.pyplot(fig)
