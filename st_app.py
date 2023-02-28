@@ -6,7 +6,8 @@ from tempfile import TemporaryDirectory
 import streamlit as st
 
 # Local imports
-from src import daily_noise
+from src.daily_noise import DailyNoiseAnalysis
+from src.hydrophone import Hydrophone
 
 # Title
 st.write("# Daily Noise Levels")
@@ -18,10 +19,10 @@ selected_hydrophone = st.selectbox(
     hydrophones
 )
 
-# Get Dfs
+# Create analysis
 @st.cache
 def get_summary_dfs(hydrophone):
-    return daily_noise.create_daily_noise_summary_df(dt.date(2023, 2, 1), 3)
+    return DailyNoiseAnalysis(Hydrophone[hydrophone.upper().replace(" ", "_")]).create_daily_noise_summary_df(dt.date(2023, 2, 1), 3)
 summary_dfs = get_summary_dfs(selected_hydrophone)
 
 # Choose Band
@@ -34,7 +35,7 @@ selected_band = st.select_slider(
 
 # Display
 st.write(f"Daily Noise in {selected_band[0]}hz to {selected_band[1]}hz band")
-fig = daily_noise.plot_daily_noise(summary_dfs, band=selected_band)
+fig = DailyNoiseAnalysis.plot_daily_noise(summary_dfs, band=selected_band)
 fig.patch.set_facecolor(None)
 fig.patch.set_alpha(0.0)
 st.pyplot(fig)
