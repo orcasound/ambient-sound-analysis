@@ -1,7 +1,9 @@
 
 
+import datetime as dt
 import os
 from tempfile import TemporaryDirectory
+
 import pandas as pd
 
 from .file_connector import S3FileConnector
@@ -13,7 +15,7 @@ class NoiseAcccessor:
         self.connector = S3FileConnector(hydrophone)
 
 
-    def create_df(self, start, end, delta_t=10, delta_f="3oct"):
+    def create_df(self, start, end, delta_t=10, delta_f="3oct", round_timestamps=False):
         """
         Creates a dataframe of one days worth of data.
 
@@ -21,6 +23,7 @@ class NoiseAcccessor:
         * end: datetime object representing end of range
         * delta_t: Int, Time frequency to find
         * delta_f: Str, Hz frequency to find. Use format '50hz' for linear hz bands or '3oct' for octave bands
+        * round_timestamps: Bool, default False. Set to True to round timestamps to the delta_t frequency. Good for when grouping by time.
 
         # Return: Dataframe with request data in daterange. Index is datetime
         """
@@ -47,4 +50,30 @@ class NoiseAcccessor:
         df = pd.concat(dfs, axis=0)
         df = df[~df.index.duplicated(keep='first')]
         df = df[(df.index >= start) & (df.index <= end)]
+
+        # Round
+        if round_timestamps:
+            df.index = pd.Series(df.index).apply(self._round_seconds, round_to=delta_t)
         return df
+    
+    @staticmethod
+    def _round_seconds(target_dt, round_to=60):
+        """
+        Round the seconds datetime object. Can only round by even divisors of 60 for consistency 
+
+        * target_dt : datetime object to round
+        * round_to : Closest number of seconds to round to, default 1 minute. Must be a divisor of 60
+
+        # Return
+        Datetime object rounded to round_to secconds
+        """
+
+        # Validate
+        if 60 % round_to != 0:
+            raise ValueError("round_to must be a divisor of 60")
+        
+        # Round
+        seconds = int(round(target_dt.second/round_to, 0) * round_to)
+        diff = target_dt.second - seconds
+        
+        return target_dt.replace(microsecond=0) + dt.timedelta(seconds=diff)
