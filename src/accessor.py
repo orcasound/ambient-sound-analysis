@@ -76,4 +76,4 @@ class NoiseAcccessor:
         seconds = int(round(target_dt.second/round_to, 0) * round_to)
         diff = target_dt.second - seconds
         
-        return target_dt.replace(microsecond=0) + dt.timedelta(seconds=diff)
+        return target_dt.replace(microsecond=0) - dt.timedelta(seconds=diff)
