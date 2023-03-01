@@ -24,7 +24,8 @@ class S3FileConnector:
 
         load_dotenv('.aws-config')
         self.client = boto3.client('s3')
-        self.resource = boto3.resource('s3').Bucket(self.bucket)
+        self.source_resource = boto3.resource('s3').Bucket(self.bucket)
+        self.archive_resource = boto3.resource('s3').Bucket(self.save_bucket)
 
     @classmethod
     def create_filename(cls, start: dt.datetime, end: dt.datetime, secs_per_sample: int, delta_hz: int = None, octave_bands: int = None):
@@ -52,7 +53,6 @@ class S3FileConnector:
         # Return
         startdt, enddt, secs_per_sample, freq_value, freq_type list
         """
-
         args = filename.replace(".parquet", "").split("_")
 
         args[0] = dt.datetime.strptime(args[0], cls.DT_FORMAT)
@@ -104,17 +104,32 @@ class S3FileConnector:
 
     def get_files(self, start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands):
         """
-        Get files within datetime range and matching optional sec and hz band requirements
+        Get files within datetime range and matching optional sec and hz band requirements.
+
+        * start: datetime, start point of range to search
+        * end: datetime, end point of range to search
+        * secs_per_sample: Int, the requested time frequency
+        * hz_bands: Str, the hz bands to find. Can be in '50hz' format for linear bands or '3oct' format for octal bands
+
+        # Return
+        List of filepaths that meet the search criteria
 
         """
 
+        # Setup
         all_files = []
+        suffix = f"{secs_per_sample}s_{hz_bands}.parquet"
 
-        for my_bucket_object in self.resource.objects.filter(Prefix=self.ref_folder):
+        for my_bucket_object in self.archive_resource.objects.filter(Prefix=self.save_folder):
             filename = my_bucket_object.key.split("/")[-1]
-            fstart, fend, fsec, fhz = self.parse_filename(filename)
+            if not filename.endswith(suffix):
+                continue
+
+            fstart, fend, _, _, __ = self.parse_filename(filename)
             if fstart >= start and fstart <= fend:
-                all_files.append(my_bucket_object)
+                all_files.append(my_bucket_object.key)
 
         return all_files
-        
+
+    def download_file(self, filename, location):
+            self.client.download_file(self.save_bucket, filename, location)
