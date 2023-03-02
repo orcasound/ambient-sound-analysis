@@ -62,7 +62,10 @@ class S3FileConnector:
         args[2] = int(args[2].replace("s", ""))
         
         # Parse frequency
-        if "hz" in args[3]:
+        if args[3] == "broadband":
+            args[3] = 0
+            args.append("broadband")
+        elif "hz" in args[3]:
             args[3] = int(args[3].replace("hz", ""))
             args.append("delta_hz")
         elif "oct" in args[3]:
