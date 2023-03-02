@@ -28,10 +28,12 @@ class S3FileConnector:
         self.archive_resource = boto3.resource('s3').Bucket(self.save_bucket)
 
     @classmethod
-    def create_filename(cls, start: dt.datetime, end: dt.datetime, secs_per_sample: int, delta_hz: int = None, octave_bands: int = None):
+    def create_filename(cls, start: dt.datetime, end: dt.datetime, secs_per_sample: int, delta_hz: int = None, octave_bands: int = None, is_broadband: bool =False):
         """ Create a filename with the given daterange and granularity. Dates must be in UTC """
 
-        if octave_bands is not None:
+        if is_broadband:
+            freq_str = "broadband"
+        elif octave_bands is not None:
             freq_str = str(octave_bands) + "oct"
         elif delta_hz is not None:
             freq_str = str(delta_hz) + "hz"
