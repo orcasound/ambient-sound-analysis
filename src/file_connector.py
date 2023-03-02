@@ -74,7 +74,7 @@ class S3FileConnector:
 
         return args
 
-    def upload_file(self, file, start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands):
+    def upload_file(self, file, start: dt.datetime, end: dt.datetime, secs_per_sample: int, delta_hz: int = None, octave_bands: int = None, is_broadband: bool =False):
         """
         Upload a parquet file to the S3 archive
 
@@ -87,7 +87,7 @@ class S3FileConnector:
         """
 
         
-        file_name = self.create_filename(start, end, secs_per_sample, hz_bands)
+        file_name = self.create_filename(start, end, secs_per_sample, delta_hz=delta_hz, octave_bands=octave_bands, is_broadband=is_broadband)
 
         # If file path, open as object
         if isinstance(file, str):
