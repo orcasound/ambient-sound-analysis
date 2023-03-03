@@ -134,7 +134,7 @@ class NoiseAnalysisPipeline:
         os.makedirs(save_folder, exist_ok=True)
         fileName = self.file_connector.create_filename(start, end, self.delta_t, self.delta_f,
                                                        octave_bands=self.bands)
-        broadbandName = self.file_connector.create_filename(start, end, is_broadband=True)
+        broadbandName = self.file_connector.create_filename(start, end, self.delta_t, is_broadband=True)
         filePath = os.path.join(save_folder, fileName)
         broadbandFilePath = os.path.join(save_folder, broadbandName)
         pds_frame.columns = pds_frame.columns.astype(str)
