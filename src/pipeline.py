@@ -159,7 +159,7 @@ class NoiseAnalysisPipeline:
             if upload_to_s3:
                 self.file_connector.upload_file(filePath, start, end, self.delta_t, self.delta_f,
                                                 octave_bands=self.bands)
-                self.file_connector.upload_file(broadbandFilePath, start, end, is_braodband=True)
+                self.file_connector.upload_file(broadbandFilePath, start, end, self.delta_t, is_broadband=True)
 
             return filePath, broadbandFilePath
 
