@@ -15,7 +15,7 @@ class NoiseAcccessor:
         self.connector = S3FileConnector(hydrophone)
 
 
-    def create_df(self, start, end, delta_t=10, delta_f="3oct", round_timestamps=False):
+    def create_df(self, start, end, delta_t=1, delta_f="3oct", round_timestamps=False):
         """
         Creates a dataframe of one days worth of data.
 
