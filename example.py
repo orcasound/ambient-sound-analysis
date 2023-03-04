@@ -1,15 +1,26 @@
 import datetime as dt
+
 from src.hydrophone import Hydrophone
 from src.pipeline.pipeline import NoiseAnalysisPipeline
 
-# Create Pipeline
-pipeline = NoiseAnalysisPipeline(Hydrophone.ORCASOUND_LAB, pqt_folder='pqt', delta_f=1000, delta_t=1)
 
-# Generate Parquet File
-pipeline.generate_parquet_file(dt.date(2022, 11, 5), dt.date(2022, 11, 6))
+########## Analysis ######################
+from src.analysis import NoiseAcccessor
 
-# Generate Week of data
-pipeline.generate_parquet_file_batch(dt.date(2022, 10, 1), 7, dt.timedelta(days=1))
+## Create a Noise Accessor object
+ac = NoiseAcccessor(Hydrophone.ORCASOUND_LAB)
+
+# Create a dataframe 
+default_df = ac.create_df(dt.datetime(2022, 1, 1), dt.datetime(2022, 1, 2))
+print(default_df.head())
+
+# Create a broadband dataframe
+broadband_df = ac.create_df(dt.datetime(2022, 1, 1), dt.datetime(2022, 1, 2), delta_f="broadband")
+print(broadband_df.head())
+
+# Round the timestamps
+rounded_df = ac.create_df(dt.datetime(2022, 1, 1), dt.datetime(2022, 1, 2), round_timestamps=True)
+print(rounded_df.head())
 
 
 
