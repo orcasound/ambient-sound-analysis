@@ -4,3 +4,4 @@ src/__pycache__/
 __pycache__/
 *.parquet
 .aws-config
+temp.py
