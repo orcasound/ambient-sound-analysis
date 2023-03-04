@@ -2,8 +2,8 @@ import datetime as dt
 import os
 
 # Local imports
-from src import pipeline
-import src.acoustic_util as acoustic_util
+from src.pipeline import pipeline
+import src.pipeline.acoustic_util as acoustic_util
 import pandas as pd
 import numpy as np
 
