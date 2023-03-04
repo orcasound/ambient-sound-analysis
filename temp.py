@@ -2,10 +2,10 @@ import os
 import seaborn as sns
 import datetime as dt
 from src.hydrophone import Hydrophone
-from src.pipeline import NoiseAnalysisPipeline
-from src.acoustic_util import spec_plot
+from src.pipeline.pipeline import NoiseAnalysisPipeline
+from src.pipeline.acoustic_util import spec_plot
 from src.file_connector import S3FileConnector
-from src.accessor import NoiseAcccessor
+from src.analysis import NoiseAcccessor
 # from src import daily_noise
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -36,11 +36,13 @@ import pandas as pd
 
 # plt.savefig('test_daily.png')
 
-ac = NoiseAcccessor(Hydrophone.ORCASOUND_LAB)
-df = ac.create_df(dt.datetime(2023, 2, 1), dt.datetime(2023, 2, 2))
-# print(df)
+from src.analysis import NoiseAcccessor
 
-t = dt.datetime(2022, 1, 1, 17, 59, 13, 198)
-print(NoiseAcccessor._round_seconds(t, 10))
+ac = NoiseAcccessor(Hydrophone.ORCASOUND_LAB)
+df = ac.create_df(dt.datetime(2023, 2, 1), dt.datetime(2023, 2, 2), delta_t=10, delta_f="3oct")
+print(df.shape)
+
+# t = dt.datetime(2022, 1, 1, 17, 59, 13, 198)
+# print(NoiseAcccessor._round_seconds(t, 10))
 
 # print(daily_noise.round_time(dt.time(1, 10, 2, 105), 10))
