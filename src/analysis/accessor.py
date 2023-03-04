@@ -6,8 +6,8 @@ from tempfile import TemporaryDirectory
 
 import pandas as pd
 
-from .file_connector import S3FileConnector
-from .hydrophone import Hydrophone
+from src.file_connector import S3FileConnector
+from src.hydrophone import Hydrophone
 
 class NoiseAcccessor:
 
