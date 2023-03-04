@@ -125,22 +125,43 @@ class NoiseAnalysisPipeline:
         Filepath of generated pqt file.
         """
 
-        # Create datafame
-        pds_frame = self.generate_psds(start, end, overwrite_output=True)[0]
+        def generate_parquet_file(self, start: dt.datetime, end: dt.datetime, pqt_folder_override=None,
+                                  upload_to_s3=False):
+            """
+            Create a parquet file of the psd at the given daterange.
 
-        # Save file
-        save_folder = pqt_folder_override or self.pqt_folder
-        os.makedirs(save_folder, exist_ok=True)
-        fileName = self.file_connector.create_filename(start, end, self.delta_t, self.delta_f, octave_bands=self.bands)
-        filePath = os.path.join(save_folder, fileName)
-        pds_frame.columns = pds_frame.columns.astype(str)
-        pds_frame.to_parquet(filePath)
+            * Start: datetime, start of data to poll
+            * end: datetime, end of data to poll
+            * pqt_folder_override: Overide the object level settings for where to save pqt files.
+            * upload_to_s3: Boolean, set to true to upload file to S3 after saving
 
-        # Upload
-        if upload_to_s3:
-            self.file_connector.upload_file(filePath, start, end, self.delta_t, self.delta_f)
+            # Return
+            Filepath of generated pqt file.
+            """
 
-        return filePath
+            # Create datafame
+            pds_frame, broadband_frame = self.generate_psds(start, end, overwrite_output=True)
+
+            # Save file
+            save_folder = pqt_folder_override or self.pqt_folder
+            os.makedirs(save_folder, exist_ok=True)
+            fileName = self.file_connector.create_filename(start, end, self.delta_t, self.delta_f,
+                                                           octave_bands=self.bands)
+            broadbandName = self.file_connector.create_filename(start, end, is_broadband=True)
+            filePath = os.path.join(save_folder, fileName)
+            broadbandFilePath = os.path.join(save_folder, broadbandName)
+            pds_frame.columns = pds_frame.columns.astype(str)
+            broadband_frame.columns = broadband_frame.columns.astype(str)
+            pds_frame.to_parquet(filePath)
+            broadband_frame.to_parquet(broadbandFilePath)
+
+            # Upload
+            if upload_to_s3:
+                self.file_connector.upload_file(filePath, start, end, self.delta_t, self.delta_f,
+                                                octave_bands=self.bands)
+                self.file_connector.upload_file(broadbandFilePath, start, end, self.delta_t, is_broadband=True)
+
+            return filePath, broadbandFilePath
 
     def generate_parquet_file_batch(self, start: dt.datetime, num_files: int, file_length:dt.timedelta, **kwargs):
         """
