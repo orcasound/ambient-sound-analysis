@@ -1,6 +1,6 @@
 import datetime as dt
 from src.hydrophone import Hydrophone
-from src.pipeline import NoiseAnalysisPipeline
+from src.pipeline.pipeline import NoiseAnalysisPipeline
 
 # Create Pipeline
 pipeline = NoiseAnalysisPipeline(Hydrophone.ORCASOUND_LAB, pqt_folder='pqt', delta_f=1000, delta_t=1)
