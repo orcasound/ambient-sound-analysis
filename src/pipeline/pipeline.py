@@ -172,3 +172,43 @@ class NoiseAnalysisPipeline:
             file_paths.append(self.generate_parquet_file(startTime, endTime, **kwargs))
         
         return file_paths
+
+    def process_ancient_ambient(self, ref_time: dt.datetime):
+
+        tmp_dir = tempfile.TemporaryDirectory()
+
+        fc = self.file_connector
+        start_time = ref_time - dt.timedelta(30)
+
+        files = fc.get_files(start=start_time, end=ref_time, secs_per_sample=1, is_broadband=True)
+
+        pqs = []
+
+        for file in files:
+            tmp_file = tmp_dir.name + '/' + file.split('/')[-1]
+            fc.download_file(file, tmp_file)
+            pqs.append(pd.read_parquet(tmp_file, engine='pyarrow'))
+            
+        pq_out = pd.concat(pqs)
+
+        mask = (pq_out.index >= start_time) & (pq_out.index < ref_time)
+        df = pq_out.iloc[mask]
+
+        aa = np.percentile(df, 5)
+
+        out_df = pd.DataFrame(index=[ref_time], columns=['ancient_ambient'], data=[aa])
+
+        aa_filepath = tmp_dir.name + '/ancient_ambient.parquet'
+
+        try:
+            fc.download_file(self.hydrophone.save_folder + '/ancient_ambient.parquet', aa_filepath)
+            aa_df = pd.read_parquet(aa_filepath, engine='pyarrow')
+            aa_df = pd.concat([aa_df, out_df])
+        except:
+            aa_df = out_df
+
+        aa_pq = aa_df.to_parquet(aa_filepath, engine='pyarrow')
+
+        file = open(aa_filepath, 'rb')
+        fc.client.upload_fileobj(file, self.hydrophone.save_bucket, self.hydrophone.save_folder + "/" + 'ancient_ambient.parquet')
+        file.close()
