@@ -51,7 +51,7 @@ class NoiseAcccessor:
         # Compile and clean
         df = pd.concat(dfs, axis=0)
         df = df[~df.index.duplicated(keep='first')]
-        #df = df[(df.index >= start) & (df.index <= end)]
+        df = df[(df.index >= start) & (df.index <= end)]
 
         # Round
         if round_timestamps:

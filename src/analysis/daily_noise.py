@@ -26,25 +26,27 @@ class DailyNoiseAnalysis:
     def create_daily_noise_summary_df(self, start_date, num_days):
         # Compile
         start_date = dt.datetime.combine(start_date, dt.time.min)
-        daily_dfs = [self.get_daily_df(start_date + dt.timedelta(days=i)) for i in range(num_days)]
-        df = pd.concat(daily_dfs, axis=0)
+        # daily_dfs = [self.get_daily_df(start_date + dt.timedelta(days=i)) for i in range(num_days)]
+        # df = pd.concat(daily_dfs, axis=0)
+        df = self.accessor.create_df(start=start_date, end=start_date + dt.timedelta(days=num_days), round_timestamps=True)
 
         # Group
         df["time"] = df.index.time
-        print(df["time"])
         time_group = df.groupby("time")
         mean_df = time_group.mean()
         min_df = time_group.min()
         max_df = time_group.max()
+        count = time_group.count()
 
         return {
             "mean":mean_df, 
             "min": min_df,
-            "max": max_df
+            "max": max_df,
+            "count": count.max().max()
         }
 
     @staticmethod
-    def plot_daily_noise(df_dict, band=63, mean_smoothing=500, error_smoothing=100):
+    def plot_daily_noise(df_dict, band=[63, 8000], mean_smoothing=500, error_smoothing=100):
         mean_df = df_dict["mean"] 
         min_df = df_dict["min"] 
         max_df = df_dict["max"] 
@@ -65,12 +67,34 @@ class DailyNoiseAnalysis:
 
         # PLot
         fig, ax = plt.subplots()
-        ax.set_ylim([min_series.quantile(0.01), max_series.quantile(0.99)])
+        try:
+            ax.set_ylim([min_series.quantile(0.01), max_series.quantile(0.99)])
+        except ValueError:
+            pass
         smooth(mean_series, mean_smoothing).plot()
         ax.fill_between(mean_df.index, smooth(min_series, error_smoothing), smooth(max_series, error_smoothing), alpha=0.2, interpolate=True)
         plt.xticks([dt.time(i*6, 0) for i in range(4)])
 
         return fig
+
+    def create_broadband_daily_noise(self, start_date, num_days):
+        # Compile
+        start_date = dt.datetime.combine(start_date, dt.time.min)
+        df = self.accessor.create_df(start=start_date, end=start_date + dt.timedelta(days=num_days), delta_f="broadband")
+
+        # Group
+        df["date"] = df.index.date
+        return df.groupby("date").mean()
+    
+    @staticmethod
+    def plot_broadband_daily_noise(vals):
+        # PLot
+        fig, ax = plt.subplots()
+        vals.plot.bar(ax=ax)
+        ax.get_legend().remove()
+
+        return fig
+
 
 
 
