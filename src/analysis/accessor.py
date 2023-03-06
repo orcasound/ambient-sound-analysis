@@ -42,14 +42,16 @@ class NoiseAcccessor:
                 this_start, this_end, _, _, _  = S3FileConnector.parse_filename(filename)
                 this_df = pd.read_parquet(save_location)
                 try:
-                    dfs.append(this_df[this_start: this_end])
+                    this_df = this_df[(this_df.index >= this_start) & (this_df.index <= this_end)]
                 except KeyError:
+                    pass
+                finally:
                     dfs.append(this_df)
 
         # Compile and clean
         df = pd.concat(dfs, axis=0)
         df = df[~df.index.duplicated(keep='first')]
-        df = df[(df.index >= start) & (df.index <= end)]
+        #df = df[(df.index >= start) & (df.index <= end)]
 
         # Round
         if round_timestamps:
