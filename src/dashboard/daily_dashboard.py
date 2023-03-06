@@ -17,11 +17,32 @@ def create_tab():
         hydrophones
     )
 
+    # Choose dates
+    col1, col2, col3 = st.columns(3)
+    anchor_date = dt.date(2022, 1, 1)
+    with col1:
+        start_date = st.date_input(
+            "Start Date", 
+            anchor_date, 
+            min_value=anchor_date, 
+            max_value=dt.date.today()
+        )
+    with col2:
+        end_date = st.date_input(
+            "End Date", 
+            start_date + dt.timedelta(days=365), 
+            min_value=start_date, 
+            max_value=dt.date.today()
+        )
+    day_range = (end_date - start_date).days
+
     # Create analysis
     @st.cache
     def get_summary_dfs(hydrophone):
-        return DailyNoiseAnalysis(Hydrophone[hydrophone.upper().replace(" ", "_")]).create_daily_noise_summary_df(dt.date(2023, 2, 1), 3)
+        return DailyNoiseAnalysis(Hydrophone[hydrophone.upper().replace(" ", "_")]).create_daily_noise_summary_df(start_date, day_range)
     summary_dfs = get_summary_dfs(selected_hydrophone)
+    with col3:
+        st.write(f"{summary_dfs['count']} days of data found within range")
 
     # Choose Band
     bands = summary_dfs["mean"].columns
@@ -33,7 +54,18 @@ def create_tab():
 
     # Display
     st.write(f"Daily Noise in {selected_band[0]}hz to {selected_band[1]}hz band")
-    fig = DailyNoiseAnalysis.plot_daily_noise(summary_dfs, band=selected_band)
+    fig = DailyNoiseAnalysis.plot_daily_noise(summary_dfs, band=selected_band, mean_smoothing=100, error_smoothing=50)
+    fig.patch.set_facecolor(None)
+    fig.patch.set_alpha(0.0)
+    st.pyplot(fig)
+
+    # Broadband
+    st.write("Average Daily Noise Levels")
+    @st.cache
+    def get_broadband_df(hydrophone):
+        return DailyNoiseAnalysis(Hydrophone[hydrophone.upper().replace(" ", "_")]).create_broadband_daily_noise(start_date, day_range)
+    broadband_df = get_broadband_df(selected_hydrophone)
+    fig = DailyNoiseAnalysis.plot_broadband_daily_noise(broadband_df)
     fig.patch.set_facecolor(None)
     fig.patch.set_alpha(0.0)
     st.pyplot(fig)
