@@ -15,7 +15,7 @@ class NoiseAcccessor:
         self.connector = S3FileConnector(hydrophone)
 
 
-    def create_df(self, start, end, delta_t=10, delta_f="3oct", round_timestamps=False):
+    def create_df(self, start, end, delta_t=1, delta_f="3oct", round_timestamps=False):
         """
         Creates a dataframe of one days worth of data.
 
@@ -42,8 +42,10 @@ class NoiseAcccessor:
                 this_start, this_end, _, _, _  = S3FileConnector.parse_filename(filename)
                 this_df = pd.read_parquet(save_location)
                 try:
-                    dfs.append(this_df[this_start: this_end])
+                    this_df = this_df[(this_df.index >= this_start) & (this_df.index <= this_end)]
                 except KeyError:
+                    pass
+                finally:
                     dfs.append(this_df)
 
         # Compile and clean
