@@ -131,7 +131,7 @@ class S3FileConnector:
                 continue
 
             fstart, fend, _, _, __ = self.parse_filename(filename)
-            if fstart >= start and fstart <= fend:
+            if fend >= start and fstart <= end:
                 all_files.append(my_bucket_object.key)
 
         return all_files
