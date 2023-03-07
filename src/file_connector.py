@@ -124,14 +124,13 @@ class S3FileConnector:
         # Setup
         all_files = []
         suffix = f"{secs_per_sample}s_{hz_bands}.parquet"
-
         for my_bucket_object in self.archive_resource.objects.filter(Prefix=self.save_folder):
             filename = my_bucket_object.key.split("/")[-1]
             if not filename.endswith(suffix):
                 continue
 
             fstart, fend, _, _, __ = self.parse_filename(filename)
-            if fend >= start and fstart <= end:
+            if ((fstart <= start) and (fend >= start)) or ((fstart >= start) and (fstart <= end)):
                 all_files.append(my_bucket_object.key)
 
         return all_files
