@@ -54,10 +54,8 @@ def create_tab():
 
     # Display
     st.write(f"Daily Noise in {selected_band[0]}hz to {selected_band[1]}hz band")
-    fig = DailyNoiseAnalysis.plot_daily_noise(summary_dfs, band=selected_band, mean_smoothing=100, error_smoothing=50)
-    fig.patch.set_facecolor(None)
-    fig.patch.set_alpha(0.0)
-    st.pyplot(fig)
+    fig = DailyNoiseAnalysis.plot_daily_noise(summary_dfs, band=selected_band)
+    st.plotly_chart(fig)
 
     # Broadband
     st.write("Average Daily Noise Levels")
@@ -66,6 +64,4 @@ def create_tab():
         return DailyNoiseAnalysis(Hydrophone[hydrophone.upper().replace(" ", "_")]).create_broadband_daily_noise(start_date, day_range)
     broadband_df = get_broadband_df(selected_hydrophone)
     fig = DailyNoiseAnalysis.plot_broadband_daily_noise(broadband_df)
-    fig.patch.set_facecolor(None)
-    fig.patch.set_alpha(0.0)
-    st.pyplot(fig)
+    st.plotly_chart(fig)

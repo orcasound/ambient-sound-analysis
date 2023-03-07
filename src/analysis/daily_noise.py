@@ -1,8 +1,9 @@
 import datetime as dt
-import os
 from collections.abc import Iterable
 
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import plotly.express as px
 import pandas as pd
 
 from .accessor import NoiseAcccessor
@@ -46,7 +47,7 @@ class DailyNoiseAnalysis:
         }
 
     @staticmethod
-    def plot_daily_noise(df_dict, band=[63, 8000], mean_smoothing=500, error_smoothing=100):
+    def plot_daily_noise(df_dict, band=[63, 8000], mean_smoothing=500, error_smoothing=500):
         mean_df = df_dict["mean"] 
         min_df = df_dict["min"] 
         max_df = df_dict["max"] 
@@ -66,14 +67,34 @@ class DailyNoiseAnalysis:
             return smoothed[smooth_amount: ]
 
         # PLot
-        fig, ax = plt.subplots()
-        try:
-            ax.set_ylim([min_series.quantile(0.01), max_series.quantile(0.99)])
-        except ValueError:
-            pass
-        smooth(mean_series, mean_smoothing).plot()
-        ax.fill_between(mean_df.index, smooth(min_series, error_smoothing), smooth(max_series, error_smoothing), alpha=0.2, interpolate=True)
-        plt.xticks([dt.time(i*6, 0) for i in range(4)])
+        fig = go.Figure()
+        x = pd.Series(mean_series.index)
+        x_rev = x[::-1]
+        fig.add_trace(go.Scatter(
+            x=x,
+            y=smooth(mean_series, mean_smoothing),
+            name='Mean Noise',
+        ))
+        y = pd.concat([smooth(max_series, error_smoothing), smooth(min_series, error_smoothing)[::-1]])
+        fig.add_trace(go.Scatter(
+            x=pd.concat([x, x_rev]),
+            y=y,
+            fill='toself',
+            showlegend=False,
+            name='Mean Noise',
+        ))
+        # fig.add_trace(go.Scatter(
+        #     x=x,
+        #     y=smooth(max_series, error_smoothing),
+        #     name='Max Noise',
+        # ))
+        # fig.add_trace(go.Scatter(
+        #     x=x,
+        #     y=smooth(min_series, error_smoothing),
+        #     name='Min Noise',
+        # ))
+
+        fig.update_traces(mode='lines')
 
         return fig
 
