@@ -43,7 +43,7 @@ class DailyNoiseAnalysis:
             "mean":mean_df, 
             "min": min_df,
             "max": max_df,
-            "count": count.max().max()
+            "count": count
         }
 
     @staticmethod
@@ -51,6 +51,7 @@ class DailyNoiseAnalysis:
         mean_df = df_dict["mean"] 
         min_df = df_dict["min"] 
         max_df = df_dict["max"] 
+        count = df_dict["count"]
 
         # Prepare Series
         if isinstance(band, Iterable):

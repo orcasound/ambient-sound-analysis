@@ -42,7 +42,7 @@ def create_tab():
         return DailyNoiseAnalysis(Hydrophone[hydrophone.upper().replace(" ", "_")]).create_daily_noise_summary_df(start_date, day_range)
     summary_dfs = get_summary_dfs(selected_hydrophone)
     with col3:
-        st.write(f"{summary_dfs['count']} days of data found within range")
+        st.write(f"{summary_dfs['count'].max().max()} days of data found within range")
 
     # Choose Band
     bands = summary_dfs["mean"].columns
@@ -54,7 +54,7 @@ def create_tab():
 
     # Display
     st.write(f"Daily Noise in {selected_band[0]}hz to {selected_band[1]}hz band")
-    fig = DailyNoiseAnalysis.plot_daily_noise(summary_dfs, band=selected_band)
+    fig = DailyNoiseAnalysis.plot_daily_noise(summary_dfs, band=selected_band, mean_smoothing=100, error_smoothing=10)
     st.plotly_chart(fig)
 
     # Broadband

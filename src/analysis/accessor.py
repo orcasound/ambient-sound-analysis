@@ -56,6 +56,7 @@ class NoiseAcccessor:
         # Round
         if round_timestamps:
             df.index = pd.Series(df.index).apply(self._round_seconds, round_to=delta_t)
+            df = df.asfreq(str(delta_t) + 's')
         return df
     
     @staticmethod
