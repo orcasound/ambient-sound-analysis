@@ -3,6 +3,7 @@ import datetime as dt
 import os
 import tempfile
 import time
+import logging
 
 # Third part imports
 import numpy as np
@@ -15,6 +16,7 @@ from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
 from .acoustic_util import wav_to_array
 from ..hydrophone import Hydrophone
 from ..file_connector import S3FileConnector
+
 
 class NoiseAnalysisPipeline:
 
@@ -86,6 +88,7 @@ class NoiseAnalysisPipeline:
         Tuple of lists. First is psds and second is broadbands. Each list has one entry per wav_file generated
 
         """
+        logging.basicConfig(filename='temp_log.log', encoding='utf-8', level=logging.DEBUG)
 
         stream = DateRangeHLSStream(
             'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
@@ -99,16 +102,20 @@ class NoiseAnalysisPipeline:
         psd_result = []
         broadband_result = []
         while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
-            wav_file_path, clip_start_time, _ = stream.get_next_clip()
-            if clip_start_time is None:
-                continue
-            start_time = [int(x) for x in clip_start_time.split('_')]
-            start_time = dt.datetime(*start_time)
-            if wav_file_path is not None:
-                dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=self.delta_t, delta_f=self.delta_f, transforms=[],
-                                   bands=self.bands, **kwargs)
-                psd_result.append(dfs[0])
-                broadband_result.append(dfs[1])
+            try:
+                wav_file_path, clip_start_time, _ = stream.get_next_clip()
+                if clip_start_time is None:
+                    continue
+                start_time = [int(x) for x in clip_start_time.split('_')]
+                start_time = dt.datetime(*start_time)
+                if wav_file_path is not None:
+                    dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=self.delta_t, delta_f=self.delta_f, transforms=[],
+                                       bands=self.bands, **kwargs)
+                    psd_result.append(dfs[0])
+                    broadband_result.append(dfs[1])
+            except FileNotFoundError as fnf_error:
+                logging.debug("%s clip failed to download: Error %s", clip_start_time, fnf_error)
+                pass
 
         return pd.concat(psd_result), pd.concat(broadband_result)
 
