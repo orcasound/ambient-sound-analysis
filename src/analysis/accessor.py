@@ -12,7 +12,7 @@ from src.hydrophone import Hydrophone
 class NoiseAcccessor:
 
     def __init__(self, hydrophone: Hydrophone):
-        self.connector = S3FileConnector(hydrophone)
+        self.connector = S3FileConnector(hydrophone, no_sign=True)
 
 
     def create_df(self, start, end, delta_t=1, delta_f="3oct", round_timestamps=False):
