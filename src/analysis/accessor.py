@@ -12,7 +12,7 @@ from src.hydrophone import Hydrophone
 class NoiseAcccessor:
 
     def __init__(self, hydrophone: Hydrophone):
-        self.connector = S3FileConnector(hydrophone)
+        self.connector = S3FileConnector(hydrophone, no_sign=True)
 
 
     def create_df(self, start, end, delta_t=1, delta_f="3oct", round_timestamps=False):
@@ -56,6 +56,7 @@ class NoiseAcccessor:
         # Round
         if round_timestamps:
             df.index = pd.Series(df.index).apply(self._round_seconds, round_to=delta_t)
+            df = df.asfreq(str(delta_t) + 's')
         return df
     
     @staticmethod
