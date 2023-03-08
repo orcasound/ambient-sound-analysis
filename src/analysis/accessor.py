@@ -42,8 +42,10 @@ class NoiseAcccessor:
                 this_start, this_end, _, _, _  = S3FileConnector.parse_filename(filename)
                 this_df = pd.read_parquet(save_location)
                 try:
-                    dfs.append(this_df[this_start: this_end])
+                    this_df = this_df[(this_df.index >= this_start) & (this_df.index <= this_end)]
                 except KeyError:
+                    pass
+                finally:
                     dfs.append(this_df)
 
         # Compile and clean

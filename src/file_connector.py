@@ -129,6 +129,7 @@ class S3FileConnector:
 
         # Setup
         all_files = []
+
         if is_broadband:
             suffix = f"{secs_per_sample}s_broadband.parquet"
         else:
@@ -140,7 +141,9 @@ class S3FileConnector:
                 continue
 
             fstart, fend, _, _, __ = self.parse_filename(filename)
+
             if fend >= start and fstart <= end:
+
                 all_files.append(my_bucket_object.key)
 
         return all_files
