@@ -13,7 +13,7 @@ class DailyNoiseAnalysis:
     def __init__(self, hydrophone) -> None:
         self.accessor = NoiseAccessor(hydrophone)
 
-    def get_daily_df(self, target_date):
+    def get_daily_df(self, target_date, **kwargs):
         """
         Creates a dataframe of one days worth of data.
 
@@ -24,7 +24,7 @@ class DailyNoiseAnalysis:
 
         return self.accessor.create_df(start=target_date, end=target_date + dt.timedelta(days=1), round_timestamps=True)
 
-    def create_daily_noise_summary_df(self, start_date, num_days):
+    def create_daily_noise_summary_df(self, start_date, num_days, **kwargs):
         # Compile
         start_date = dt.datetime.combine(start_date, dt.time.min)
         # daily_dfs = [self.get_daily_df(start_date + dt.timedelta(days=i)) for i in range(num_days)]
