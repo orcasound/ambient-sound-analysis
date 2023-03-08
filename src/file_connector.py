@@ -13,7 +13,7 @@ class S3FileConnector:
 
     DT_FORMAT = "%Y%m%dT%H%M%S"
 
-    def __init__(self, hydrophone: Hydrophone):
+    def __init__(self, hydrophone: Hydrophone, no_sign=False):
         """
         S3File Connector maintains a connection to an AWS s3 bucket.
         """
@@ -22,10 +22,16 @@ class S3FileConnector:
         self.save_bucket = hydrophone.value.save_bucket
         self.save_folder = hydrophone.value.save_folder
 
-        load_dotenv('.aws-config')
-        self.client = boto3.client('s3')
-        self.source_resource = boto3.resource('s3').Bucket(self.bucket)
-        self.archive_resource = boto3.resource('s3').Bucket(self.save_bucket)
+        if no_sign:
+            self.client = boto3.client('s3', config=Config(signature_version=UNSIGNED), region_name='us-west-2')
+            self.source_resource = boto3.resource('s3', config=Config(signature_version=UNSIGNED)).Bucket(self.bucket)
+            self.archive_resource = boto3.resource('s3', config=Config(signature_version=UNSIGNED)).Bucket(self.save_bucket)
+        else:
+            load_dotenv('.aws-config')
+            self.client = boto3.client('s3')
+            self.source_resource = boto3.resource('s3').Bucket(self.bucket)
+            self.archive_resource = boto3.resource('s3').Bucket(self.save_bucket)
+
 
     @classmethod
     def create_filename(cls, start: dt.datetime, end: dt.datetime, secs_per_sample: int, delta_hz: int = None, octave_bands: int = None, is_broadband: bool =False):
@@ -107,7 +113,7 @@ class S3FileConnector:
             if opened_file:
                 file.close()
 
-    def get_files(self, start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands):
+    def get_files(self, start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands=None, is_broadband=False):
         """
         Get files within datetime range and matching optional sec and hz band requirements.
 
@@ -123,14 +129,21 @@ class S3FileConnector:
 
         # Setup
         all_files = []
-        suffix = f"{secs_per_sample}s_{hz_bands}.parquet"
+
+        if is_broadband:
+            suffix = f"{secs_per_sample}s_broadband.parquet"
+        else:
+            suffix = f"{secs_per_sample}s_{hz_bands}.parquet"
+
         for my_bucket_object in self.archive_resource.objects.filter(Prefix=self.save_folder):
             filename = my_bucket_object.key.split("/")[-1]
             if not filename.endswith(suffix):
                 continue
 
             fstart, fend, _, _, __ = self.parse_filename(filename)
-            if ((fstart <= start) and (fend >= start)) or ((fstart >= start) and (fstart <= end)):
+
+            if fend >= start and fstart <= end:
+
                 all_files.append(my_bucket_object.key)
 
         return all_files

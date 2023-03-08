@@ -402,3 +402,24 @@ def plot_noise(testdf, name, output_path=None, save = False):
         fig.canvas.flush_events()
         plt.close(fig)
     
+def dBFS_to_aa(df, aa):
+    """
+    Converts PSD in dBFS to dB relative to ancient ambient. Both values must be in dBFS. 
+
+    * df: dataframe to scale
+    * aa: ancient ambient.  
+
+    """
+
+    return df + abs(aa)
+
+def aa_to_dBFS(df, aa):
+    """
+    Converts PSD scaled relative to ancient ambient to dBFS. Both values must be in dBFS. 
+
+    * df: dataframe to scale
+    * aa: ancient ambient.  
+
+    """
+
+    return df - abs(aa)
