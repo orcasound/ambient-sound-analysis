@@ -179,3 +179,88 @@ class NoiseAnalysisPipeline:
             file_paths.append(self.generate_parquet_file(startTime, endTime, **kwargs))
         
         return file_paths
+
+    def process_ancient_ambient(self, ref_time: dt.datetime, dB=True):
+        """
+        Calculate the ancient ambient level for a given date and update the parquet file storing the
+        ancient ambient values.  
+
+        * ref_time: Datetime, date to use as the reference.
+        * dB: Bool.  True if the data is already in decibel form. Default True. 
+        
+        """
+
+        tmp_dir = tempfile.TemporaryDirectory()
+
+        fc = self.file_connector
+        start_time = ref_time - dt.timedelta(30)
+
+        if dB:
+            bb = False
+            amb_band=self.bands
+        else:
+            bb = True
+            amb_band = None
+        files = fc.get_files(start=start_time, end=ref_time, secs_per_sample=self.delta_t, 
+                             hz_bands=amb_band, is_broadband=bb)
+
+        pqs = []
+
+        for file in files:
+            tmp_file = tmp_dir.name + '/' + file.split('/')[-1]
+            fc.download_file(file, tmp_file)
+            pqs.append(pd.read_parquet(tmp_file, engine='pyarrow'))
+            
+        pq_out = pd.concat(pqs)
+
+        mask = (pq_out.index >= start_time) & (pq_out.index < ref_time)
+        df = pq_out.iloc[mask]
+
+        aa = np.percentile(df, 5)
+
+        out_df = pd.DataFrame(index=[ref_time], columns=['ancient_ambient'], data=[aa])
+
+        if dB:
+            filename = '/ancient_ambient_dB.parquet'
+        else:
+            filename = '/ancient_ambient.parquet'
+        aa_filepath = tmp_dir.name + filename
+
+        try:
+            fc.download_file(self.hydrophone.save_folder + filename, aa_filepath)
+            aa_df = pd.read_parquet(aa_filepath, engine='pyarrow')
+            aa_df = pd.concat([aa_df, out_df])
+        except:
+            aa_df = out_df
+
+        aa_pq = aa_df.to_parquet(aa_filepath, engine='pyarrow')
+
+        file = open(aa_filepath, 'rb')
+        fc.client.upload_fileobj(file, self.hydrophone.save_bucket, self.hydrophone.save_folder + filename)
+        file.close()
+
+    def get_ancient_ambient(self, date: dt.datetime, dB=True):
+        """
+        
+        Return the ancient ambient level for a given date from the parquet file. 
+
+        * date: Datetime, date of interest.
+        * dB: Bool.  True if the data is already in decibel form. Default True. 
+
+        """
+
+        tmp_dir = tempfile.TemporaryDirectory()
+        fc = self.file_connector
+
+        if dB:
+            filename = '/ancient_ambient_dB.parquet'
+        else:
+            filename = '/ancient_ambient.parquet'
+        aa_filepath = tmp_dir.name + filename
+
+        fc.download_file(self.hydrophone.save_folder + filename, aa_filepath)
+        aa_df = pd.read_parquet(aa_filepath, engine='pyarrow')
+
+        pos_df = aa_df.iloc[(date - aa_df.index).total_seconds() > 0]
+
+        return pos_df.loc[min(pos_df.index, key=lambda sub: date - sub)].values[0]
