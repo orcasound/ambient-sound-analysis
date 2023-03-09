@@ -6,4 +6,4 @@ librosa==0.9.2
 scikit-image==0.19.3
 boto3>=1.26.65
 python-dotenv
-plotly==5.12.1
+plotly
