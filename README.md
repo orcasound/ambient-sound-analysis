@@ -3,7 +3,7 @@
 This repository holds code for UW MSDS capstone project analyzing ambient noise levels in historical orcasound hydrophone data. There are three main components:
 
 - The pipeline that converts historical .ts files into compact Power Spetral Density (PSD) grids saves as parquert files.
-- The accessor that reads, filters and colaltes these files to produce PDS dataframes with specific time ranges, and
+- The accessor that reads, filters and collates these files to produce PDS dataframes with specific time ranges, and
 - The dashboard that displays key information found using Streamlit.
 
 # Definitions
@@ -44,6 +44,8 @@ The NoiseAccessor object has a create_df method that can be used to generate dat
 - delta_f: Str, Hz frequency to find. Use format '50hz' for linear hz bands or '3oct' for octave bands
 - round_timestamps: Bool, default False. Set to True to round timestamps to the delta_t frequency. Good for when grouping by time.
 
+Currently, only 1 second 3rd octave files (delta_1=1, delta_f="3oct") are periodically generated and available in AWS: anything else must be manually created and uploaded first using the NoiseAnalysisPipeline.
+
 ## delta_f
 
 This argument is a string to allow different frequency band methods. Note that onle frequencies that have been pre-compiled are available to access.
@@ -58,4 +60,4 @@ Due to the nature of the source data, timestamps can experience some drift in th
 
 If you want to do time-based analysis across multiple days, this can cause mis-alignment. To correct, set the _round_timestamps_ argument to true. This will round the timestamps to the delta_t frequency, dropping nanosecond values. For example, at delta_t=10 and round_timestamps=True, every timestamp will be a multiple of 10 seconds from the minute.
 
-_*Warning*_ Rounding is only available when (delta_t < 60) and (60 % delta_t = 0)
+_*Warning*_ Rounding is only available when delta_t is a divisor of 60.
