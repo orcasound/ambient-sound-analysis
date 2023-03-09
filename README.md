@@ -65,3 +65,21 @@ Due to the nature of Orcasound's source data (see the [orcanode repo](https://gi
 If you want to do time-based analysis across multiple days, this can cause mis-alignment. To correct, set the _round_timestamps_ argument to true. This will round the timestamps to the delta_t value's precision, dropping nanosecond values. For example, at delta_t=10 and round_timestamps=True, every timestamp will be a multiple of 10 seconds from the minute.
 
 _*Warning*_ Rounding is only available when delta_t is a divisor of 60.
+
+# Built With
+
+- [librosa](https://librosa.org/) - Used for audio spectral analysis. 
+- [ffmpeg](https://ffmpeg.org/) - Used for audio conversion.  
+- [Streamlit](https://streamlit.io/) - Used for the dashboard presentation. 
+- [orca-hls-utils](https://github.com/orcasound/orca-hls-utils) - Used for HLS acquisition.  
+
+# Authors 
+
+- Caleb Case - [GitHub](https://github.com/CaseCal)
+- Mitch Haldeman - [GitHub](https://github.com/mitchhaldeman) [LinkedIn](https://www.linkedin.com/in/mitchhaldeman/)
+- Grant Savage - [GitHub](https://github.com/savageGrant)
+
+# Acknowledgments 
+
+- Thanks to Valentina Staneva, Val and Scott Veirs, Ben Hendricks, and everyone else connected to the Orcasounds org for their input and guidance.  
+- Thanks to Megan Hazen and the rest of the UW MSDS faculty for their teachings and guidance.  
