@@ -88,7 +88,7 @@ class NoiseAnalysisPipeline:
         Tuple of lists. First is psds and second is broadbands. Each list has one entry per wav_file generated
 
         """
-        logging.basicConfig(filename='temp_log.log', encoding='utf-8', level=logging.DEBUG)
+        #logging.basicConfig(filename='temp_log.log', encoding='utf-8', level=logging.DEBUG)
 
         stream = DateRangeHLSStream(
             'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
@@ -96,7 +96,8 @@ class NoiseAnalysisPipeline:
             time.mktime(start.timetuple()),
             time.mktime(end.timetuple()),
             self.wav_folder,
-            overwrite_output
+            overwrite_output, 
+            quiet_ffmpeg=False
         )
 
         psd_result = []
@@ -117,6 +118,9 @@ class NoiseAnalysisPipeline:
                 logging.debug("%s clip failed to download: Error %s", clip_start_time, fnf_error)
                 pass
 
+        if len(psd_result) == 0:
+            logging.warning(f"No data found for {start} to {end}")
+            return None, None
         return pd.concat(psd_result), pd.concat(broadband_result)
 
     def generate_parquet_file(self, start: dt.datetime, end: dt.datetime, pqt_folder_override=None,
@@ -136,12 +140,15 @@ class NoiseAnalysisPipeline:
         # Create datafame
         pds_frame, broadband_frame = self.generate_psds(start, end, overwrite_output=True)
 
+        if pds_frame is None:
+            return None, None
+
         # Save file
         save_folder = pqt_folder_override or self.pqt_folder
         os.makedirs(save_folder, exist_ok=True)
         fileName = self.file_connector.create_filename(start, end, self.delta_t, self.delta_f,
                                                        octave_bands=self.bands)
-        broadbandName = self.file_connector.create_filename(start, end, is_broadband=True)
+        broadbandName = self.file_connector.create_filename(start, end, self.delta_t, is_broadband=True)
         filePath = os.path.join(save_folder, fileName)
         broadbandFilePath = os.path.join(save_folder, broadbandName)
         pds_frame.columns = pds_frame.columns.astype(str)
