@@ -15,7 +15,7 @@ class NoiseAccessor:
         self.connector = S3FileConnector(hydrophone, no_sign=True)
 
 
-    def create_df(self, start, end, delta_t=1, delta_f="3oct", round_timestamps=False):
+    def create_df(self, start, end, delta_t=1, delta_f="3oct", round_timestamps=False, is_broadband=False):
         """
         Creates a dataframe of one days worth of data.
 
@@ -32,7 +32,7 @@ class NoiseAccessor:
         dfs = []
 
         with TemporaryDirectory() as td:
-            for filepath in self.connector.get_files(start, end, secs_per_sample=delta_t, hz_bands=delta_f):
+            for filepath in self.connector.get_files(start, end, secs_per_sample=delta_t, hz_bands=delta_f, is_broadband=is_broadband):
                 # Save file
                 filename = filepath.split("/")[-1]
                 save_location = os.path.join(td, filename)
