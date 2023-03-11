@@ -5,7 +5,7 @@ from src.pipeline.pipeline import NoiseAnalysisPipeline
 
 
 ########## Analysis ######################
-from src.analysis import NoiseAcccessor
+from src.noise_analysis import NoiseAcccessor
 
 ## Create a Noise Accessor object
 ac = NoiseAcccessor(Hydrophone.ORCASOUND_LAB)

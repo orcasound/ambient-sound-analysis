@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src.dashboard import daily_dashboard, dashboard_3, spectrogram
+from src.orcasound_noise.dashboard import daily_dashboard, dashboard_3, spectrogram
 
 dailyTab, specTab, tab3 = st.tabs(["Daily Noise", "Spectrogram", "Tab3"])
 
