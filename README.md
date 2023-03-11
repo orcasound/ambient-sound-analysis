@@ -12,16 +12,65 @@ This open source project has three main components:
 
 ## Install
 
+To install directly from git:
+
+```
+pip install orcasound_noise @ git+https://github.com/orcasound/ambient-sound-analysis.git
+```
+
+To install from a local copy, navigate to the top folder and enter
+
+```
+pip install .
+```
+
 ## Download a [PSD](#psd) as a dataframe
 
 The accessor tool can be used to download pre-computed PSDs as dataframes. At the current time, only 1 second 1/3 octave PSDs are regularly archived.
 
-```
-from src.analysis import NoiseAcccessor
+```python
+import datetime as dt
 
-ac = NoiseAcccessor(Hydrophone.ORCASOUND_LAB)
-df = ac.create_df(dt.datetime(2023, 2, 1), dt.datetime(2023, 2, 2), delta_t=10, delta_f="3oct")
-print(df.shape) # (8638, 26)
+from orcasound_noise.analysis import NoiseAccessor
+from orcasound_noise.utils import Hydrophone
+
+ac = NoiseAccessor(Hydrophone.ORCASOUND_LAB)
+df = ac.create_df(dt.datetime(2020, 1, 1), dt.datetime(2020, 1, 2), round_timestamps=True)
+print(df)
+```
+
+## Generate a new PSD
+
+For other time intervals and frequency bands, a new PSD can be computed using the pipeline package.
+
+```python
+import datetime as dt
+
+from orcasound_noise.pipeline.pipeline import NoiseAnalysisPipeline
+from orcasound_noise.utils import Hydrophone
+
+pipeline = NoiseAnalysisPipeline(Hydrophone.ORCASOUND_LAB, pqt_folder='pqt', delta_f=10, bands=3, delta_t=1)
+psd_path, broadband_path = pipeline.generate_parquet_file(dt.datetime(2020, 2, 1, 9), dt.datetime(2020, 2, 1, 10), upload_to_s3=False)
+```
+
+This will save a PSD with 1 second intervals and 10hz frequency bands as a parquet file in the 'pqt' folder. It will also save a broadband PSD in the same folder.
+
+To open the PSD, simply read parquet using pandas:
+
+```python
+import pandas as pd
+
+psd_df = pd.read_parquet(psd_path)
+print(psd_df.head())
+```
+
+## Run the dashboard locally
+
+Download the repo, then
+
+```
+pip install -r requirements.txt
+python -m streamlit run dashboard.py
 ```
 
 # Definitions
