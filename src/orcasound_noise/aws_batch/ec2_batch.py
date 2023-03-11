@@ -1,5 +1,5 @@
-from src.pipeline import pipeline
-from src import hydrophone
+from ..pipeline import pipeline
+from ..utils import hydrophone
 
 import datetime
 import os

@@ -3,8 +3,8 @@ import datetime as dt
 import streamlit as st
 import plotly.graph_objects as go
 
-from src.analysis import accessor
-from src.hydrophone import Hydrophone
+from ..analysis import accessor
+from ..utils import Hydrophone
 
 
 def create_tab():

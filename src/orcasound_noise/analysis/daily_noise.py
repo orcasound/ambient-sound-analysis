@@ -6,12 +6,12 @@ import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 
-from .accessor import NoiseAcccessor
+from .accessor import NoiseAccessor
 
 class DailyNoiseAnalysis:
 
     def __init__(self, hydrophone) -> None:
-        self.accessor = NoiseAcccessor(hydrophone)
+        self.accessor = NoiseAccessor(hydrophone)
 
     def get_daily_df(self, target_date):
         """
