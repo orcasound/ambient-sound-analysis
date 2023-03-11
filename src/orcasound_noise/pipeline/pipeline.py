@@ -14,8 +14,8 @@ from scipy.io import wavfile
 # Local imports
 from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
 from .acoustic_util import wav_to_array
-from ..hydrophone import Hydrophone
-from ..file_connector import S3FileConnector
+from ..utils import Hydrophone
+from ..utils.file_connector import S3FileConnector
 
 
 class NoiseAnalysisPipeline:
@@ -96,8 +96,7 @@ class NoiseAnalysisPipeline:
             time.mktime(start.timetuple()),
             time.mktime(end.timetuple()),
             self.wav_folder,
-            overwrite_output, 
-            quiet_ffmpeg=False
+            overwrite_output
         )
 
         psd_result = []

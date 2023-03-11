@@ -1,4 +1,7 @@
 .venv
+build/
+*.egg
+*.egg-info
 wav/
 src/__pycache__/
 __pycache__/
