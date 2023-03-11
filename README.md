@@ -4,9 +4,9 @@ This repository holds code for a [UW MSDS capstone project](https://www.washingt
 
 This open source project has three main components:
 
-- The [pipeline](src/pipeline/README.md) that converts historical .ts files into compact Power Spectral Density (PSD) grids saved as [parquet files](https://parquet.apache.org/).
-- The [accessor](src/accessor/README.md) that reads, filters and collates these files to produce PSD dataframes with specific time ranges
-- The [dashboard](src/dashboard/README.md) that displays key results using [Streamlit](https://streamlit.io/).
+- The [pipeline](src/orcasound_noise/pipeline/README.md) that converts historical .ts files into compact [Power Spectral Density (PSD)](#psd) grids saved as [parquet files](https://parquet.apache.org/).
+- The [accessor](src/orcasound_noise/analysis/README.md) that reads, filters and collates these files to produce PSD dataframes with specific time ranges
+- The [dashboard](src/orcasound_noise/dashboard/README.md) that displays key results using [Streamlit](https://streamlit.io/). The live dashboard is directly connected to the repo and visible [here](https://orcasound-ambient-sound-analysis-dashboard-boh8ls.streamlit.app)
 
 # Quickstart
 
@@ -73,15 +73,52 @@ pip install -r requirements.txt
 python -m streamlit run dashboard.py
 ```
 
+The dashboard will open at localhost.
+
 # Definitions
 
 ## PSD
 
 A Power Spectral Density describes the power present in the audio signal as a function of frequency, per unit frequency and for a given averaging time. In this codebase, PSD values are generally stored as Pandas Dataframes, where the index represents the timestamps, the columns represent frequency bands, and each cell value represents the relative power in that frequency band and time interval, in decibels.
 
+## Sample duration
+
 The **sample duration**, or **delta_t** (time interval), represents the number of seconds per sample. A duration of 1 means that timestamps are one second apart, and each data point represents the average noise level over one second in that frequency band. The default for generated data is 1 second duration.
 
+## Frequency Band
+
 The **frequency band** represents the frequency range over which the power is integrated. Within the vessel noise and marine bioacoustic literature, this is commonly done in fractions of an octave, e.g. 1/3 or 1/12 octave bands. The value in the column index represents the upper frequency range. For example, in a 1/3rd octave PSD, the 63 column represents the power in the range of 0 to 63 Hz, while the 80 column represents the power from 63 to 80 Hz.
+
+# Hydrophone
+
+Hydrophones are referenced using the Hydrophone enum located in [the utils package.](src/orcasound_noise/utils/hydrophone.py). These enums store all the relevant connection info for each hydrophone, including where to find the streamed ts files and where to store the archived parquet files.
+
+```python
+from orcasound_noise.utils import Hydrophone
+
+my_hydrophone = Hydrophone.ORCASOUND_LAB
+```
+
+# S3 File Connector
+
+The S3 File connector provides an interface for interacting with the S3 buckets where data is stored. This is generally initialized within other objects and rarely should be used directly.
+
+Currently, all files are available for download without authentication. If files are being uploaded, then an AWS*ACCESS_KEY_ID* and secret must be available in the environment. This can be done by adding a `.aws-config` file to the root of your working folder, (see [example file](.aws-config-example)) or by any other means of modifying the environment.
+
+For example, to programaticaly provide authentication:
+
+```python
+import os
+from orcasound_noise.pipeline import NoiseAnalysisPipeline
+
+# Set env
+os.env["AWS_ACCESS_KEY_ID"] = "my_id"
+os.env["AWS_SECRET_ACCESS_KEY"] = "my_secret"
+
+# Upload file
+pipeline = NoiseAnalysisPipeline(Hydrophone.ORCASOUND_LAB, pqt_folder='pqt', delta_f=10, bands=3, delta_t=1)
+pipeline.generate_parquet_file(dt.datetime(2020, 1, 1), dt.datetime(2020, 2, 1), upload_to_s3=True)
+```
 
 # Built With
 
