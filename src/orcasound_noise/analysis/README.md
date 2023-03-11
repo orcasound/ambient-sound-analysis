@@ -1,4 +1,4 @@
-# Accessor
+# Noise Accessor
 
 The accessor is the toolkit used for accessing the stored files. This is done by initializing a NoiseAccessor object for a specific hydrophone, and then requesting a time range and optional time and frequency resolution (or granularity). The accessor scans the generated archive files, loads the correct ones, concatenates the data into a single dataframe, and then trims any data outside of the requested range.
 
@@ -14,7 +14,7 @@ print(df.shape) # (8638, 26)
 
 where the parameters `delta_t=10` and `delta_f="3oct"` specify computation of 1/3-octave band levels over 10-second time intervals.
 
-## Initialization
+# Usage
 
 To initialize a NoiseAccessor object, all that is needed a Hydrophone enum instance. This instance contains all needed connection info.
 
@@ -28,7 +28,7 @@ The NoiseAccessor object has a create_df method that can be used to generate dat
 - delta_f: Str, Hz frequency to find. Use format '50hz' for linear hz bands or '3oct' for octave bands
 - round_timestamps: Bool, default False. Set to True to round timestamps to the delta_t frequency. Good for when grouping by time.
 
-Currently, only 1 second 3rd octave files (delta_1=1, delta_f="3oct") are periodically generated and available in AWS: anything else must be manually created and uploaded first using the NoiseAnalysisPipeline.
+Currently, only 1 second 3rd octave files (`delta_t=1, delta_f="3oct"`) are periodically generated and available in AWS: anything else must be manually created and uploaded first using the [NoiseAnalysisPipeline](../pipeline/README.md).
 
 ## delta_f
 
@@ -45,3 +45,5 @@ Due to the nature of Orcasound's source data (see the [orcanode repo](https://gi
 If you want to do time-based analysis across multiple days, this can cause mis-alignment. To correct, set the _round_timestamps_ argument to true. This will round the timestamps to the delta_t value's precision, dropping nanosecond values. For example, at delta_t=10 and round_timestamps=True, every timestamp will be a multiple of 10 seconds from the minute.
 
 _*Warning*_ Rounding is only available when delta_t is a divisor of 60.
+
+# Structure
