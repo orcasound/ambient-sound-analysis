@@ -6,10 +6,10 @@ from tempfile import TemporaryDirectory
 
 import pandas as pd
 
-from src.file_connector import S3FileConnector
-from src.hydrophone import Hydrophone
+from ..utils.file_connector import S3FileConnector
+from ..utils import Hydrophone
 
-class NoiseAcccessor:
+class NoiseAccessor:
 
     def __init__(self, hydrophone: Hydrophone):
         self.connector = S3FileConnector(hydrophone, no_sign=True)

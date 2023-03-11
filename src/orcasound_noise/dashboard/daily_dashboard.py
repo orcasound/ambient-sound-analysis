@@ -2,8 +2,8 @@ import datetime as dt
 
 import streamlit as st
 
-from src.analysis import DailyNoiseAnalysis
-from src.hydrophone import Hydrophone
+from src.orcasound_noise.analysis import DailyNoiseAnalysis
+from src.orcasound_noise.utils import Hydrophone
 
 
 def create_tab():
