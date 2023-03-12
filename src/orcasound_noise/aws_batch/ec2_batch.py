@@ -21,7 +21,7 @@ for index, month in enumerate (every_x_months):
         end_time = every_x_months[index+1]
         ship = pipeline.NoiseAnalysisPipeline(orcasound_lab, delta_f=10, delta_t=1, bands=3, wav_folder="wav_folder", pqt_folder="pqt_folder")
         print('generating parquet for dates {} to {}.'.format(start_time, end_time))
-        file = ship.generate_parquet_file(start=start_time, end=start_time+datetime.timedelta(days=1), upload_to_s3=True)
+        file = ship.generate_parquet_file(start=start_time, end=end_time, upload_to_s3=True)
         del ship
         files = glob.glob('wav_folder/*')
         for f in files:
