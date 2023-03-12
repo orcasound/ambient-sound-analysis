@@ -58,15 +58,20 @@ admins of the orcasound AWS account, and typically provided in the form of addin
    `sudo apt-get -y install pipenv`
 
    `sudo apt-get install tmux`
-2. #### clone ambient-sound-analysis repo
+2. Configure your AWS credentials
+
+    `aws configure` 
+
+    follow the setup. we're in region us-west-2, default output format JSON.
+5. #### clone ambient-sound-analysis repo
 
    `git clone https://github.com/orcasound/ambient-sound-analysis.git`
-3. #### Start the TMUX session
+6. #### Start the TMUX session
    tmux is a powerful tool. [This S.O. post provides a decent overview](https://stackoverflow.com/questions/21193988/keep-server-running-on-ec2-instance-after-ssh-is-terminated)
    
    `tmux new-session -s session_name`
 
-4. #### create virtual environment, install dependencies 
+7. #### create virtual environment, install dependencies 
  
    `cd ambient-sound-analysis`
        
