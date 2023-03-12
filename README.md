@@ -4,9 +4,76 @@ This repository holds code for a [UW MSDS capstone project](https://www.washingt
 
 This open source project has three main components:
 
-- The pipeline that converts historical .ts files into compact Power Spectral Density (PSD) grids saved as [parquet files](https://parquet.apache.org/).
-- The accessor that reads, filters and collates these files to produce PSD dataframes with specific time ranges, and
-- The dashboard that displays key results using [Streamlit](https://streamlit.io/).
+- The [pipeline](src/orcasound_noise/pipeline/README.md) that converts historical .ts files into compact [Power Spectral Density (PSD)](#psd) grids saved as [parquet files](https://parquet.apache.org/).
+- The [accessor](src/orcasound_noise/analysis/README.md) that reads, filters and collates these files to produce PSD dataframes with specific time ranges
+- The [dashboard](src/orcasound_noise/dashboard/README.md) that displays key results using [Streamlit](https://streamlit.io/). The live dashboard is directly connected to the repo and visible [here](https://orcasound-ambient-sound-analysis-dashboard-boh8ls.streamlit.app)
+
+# Quickstart
+
+## Install
+
+To install directly from git:
+
+```
+pip install orcasound_noise @ git+https://github.com/orcasound/ambient-sound-analysis.git
+```
+
+To install from a local copy, navigate to the top folder and enter
+
+```
+pip install .
+```
+
+## Download a [PSD](#psd) as a dataframe
+
+The accessor tool can be used to download pre-computed PSDs as dataframes. At the current time, only 1 second 1/3 octave PSDs are regularly archived.
+
+```python
+import datetime as dt
+
+from orcasound_noise.analysis import NoiseAccessor
+from orcasound_noise.utils import Hydrophone
+
+ac = NoiseAccessor(Hydrophone.ORCASOUND_LAB)
+df = ac.create_df(dt.datetime(2020, 1, 1), dt.datetime(2020, 1, 2), round_timestamps=True)
+print(df)
+```
+
+## Generate a new PSD
+
+For other time intervals and frequency bands, a new PSD can be computed using the pipeline package.
+
+```python
+import datetime as dt
+
+from orcasound_noise.pipeline.pipeline import NoiseAnalysisPipeline
+from orcasound_noise.utils import Hydrophone
+
+pipeline = NoiseAnalysisPipeline(Hydrophone.ORCASOUND_LAB, pqt_folder='pqt', delta_f=10, bands=3, delta_t=1)
+psd_path, broadband_path = pipeline.generate_parquet_file(dt.datetime(2020, 2, 1, 9), dt.datetime(2020, 2, 1, 10), upload_to_s3=False)
+```
+
+This will save a PSD with 1 second intervals and 10hz frequency bands as a parquet file in the 'pqt' folder. It will also save a broadband PSD in the same folder.
+
+To open the PSD, simply read parquet using pandas:
+
+```python
+import pandas as pd
+
+psd_df = pd.read_parquet(psd_path)
+print(psd_df.head())
+```
+
+## Run the dashboard locally
+
+Download the repo, then
+
+```
+pip install -r requirements.txt
+python -m streamlit run dashboard.py
+```
+
+The dashboard will open at localhost.
 
 # Definitions
 
@@ -14,72 +81,59 @@ This open source project has three main components:
 
 A Power Spectral Density describes the power present in the audio signal as a function of frequency, per unit frequency and for a given averaging time. In this codebase, PSD values are generally stored as Pandas Dataframes, where the index represents the timestamps, the columns represent frequency bands, and each cell value represents the relative power in that frequency band and time interval, in decibels.
 
+## Sample duration
+
 The **sample duration**, or **delta_t** (time interval), represents the number of seconds per sample. A duration of 1 means that timestamps are one second apart, and each data point represents the average noise level over one second in that frequency band. The default for generated data is 1 second duration.
+
+## Frequency Band
 
 The **frequency band** represents the frequency range over which the power is integrated. Within the vessel noise and marine bioacoustic literature, this is commonly done in fractions of an octave, e.g. 1/3 or 1/12 octave bands. The value in the column index represents the upper frequency range. For example, in a 1/3rd octave PSD, the 63 column represents the power in the range of 0 to 63 Hz, while the 80 column represents the power from 63 to 80 Hz.
 
-# Accessor
+# Hydrophone
 
-The accessor is the toolkit used for accessing the stored files. This is done by initializing a NoiseAccessor object for a specific hydrophone, and then requesting a time range and optional time and frequency resolution (or granularity). The accessor scans the generated archive files, loads the correct ones, concatenates the data into a single dataframe, and then trims any data outside of the requested range.
+Hydrophones are referenced using the Hydrophone enum located in [the utils package.](src/orcasound_noise/utils/hydrophone.py). These enums store all the relevant connection info for each hydrophone, including where to find the streamed ts files and where to store the archived parquet files.
 
-Example:
+```python
+from orcasound_noise.utils import Hydrophone
 
-```
-from src.analysis import NoiseAcccessor
-
-ac = NoiseAcccessor(Hydrophone.ORCASOUND_LAB)
-df = ac.create_df(dt.datetime(2023, 2, 1), dt.datetime(2023, 2, 2), delta_t=10, delta_f="3oct")
-print(df.shape) # (8638, 26)
+my_hydrophone = Hydrophone.ORCASOUND_LAB
 ```
 
-where the parameters `delta_t=10` and `delta_f="3oct"` specify computation of 1/3-octave band levels over 10-second time intervals.
+# S3 File Connector
 
-## Initialization
+The S3 File connector provides an interface for interacting with the S3 buckets where data is stored. This is generally initialized within other objects and rarely should be used directly.
 
-To initialize a NoiseAccessor object, all that is needed a Hydrophone enum instance. This instance contains all needed connection info.
+Currently, all files are available for download without authentication. If files are being uploaded, then an AWS*ACCESS_KEY_ID* and secret must be available in the environment. This can be done by adding a `.aws-config` file to the root of your working folder, (see [example file](.aws-config-example)) or by any other means of modifying the environment.
 
-## Create a Dataframe
+For example, to programaticaly provide authentication:
 
-The NoiseAccessor object has a create_df method that can be used to generate dataframes of requested ranges. It needs the following arguments:
+```python
+import os
+from orcasound_noise.pipeline import NoiseAnalysisPipeline
 
-- start: datetime object representing start of range
-- end: datetime object representing end of range
-- delta_t: Int, Time interval to find
-- delta_f: Str, Hz frequency to find. Use format '50hz' for linear hz bands or '3oct' for octave bands
-- round_timestamps: Bool, default False. Set to True to round timestamps to the delta_t frequency. Good for when grouping by time.
+# Set env
+os.env["AWS_ACCESS_KEY_ID"] = "my_id"
+os.env["AWS_SECRET_ACCESS_KEY"] = "my_secret"
 
-Currently, only 1 second 3rd octave files (delta_1=1, delta_f="3oct") are periodically generated and available in AWS: anything else must be manually created and uploaded first using the NoiseAnalysisPipeline.
-
-## delta_f
-
-This argument is a string to allow different frequency banding methods. Note that only frequency bands that have been pre-compiled are available to access.
-
-- To access linear frequency bands, use the "hz" suffix. For example, a "50hz" would return frequency bounds in columns like [0, 50, 100, 150...]
-- To access (fractions of) octave bands, use the "oct" suffix. "3oct" will return the 1/3 octave bands, starting with [63, 80, 100, 125, 160...]
-- To access broadband noise, use the "broadband" suffix. This returns a single column representing the total noise level across all frequencies sensed by the hydrophone recording system.
-
-## round_timestamps
-
-Due to the nature of Orcasound's source data (see the [orcanode repo](https://github.com/orcasound/orcanode)), timestamps can experience some drift in the nanosecond precision. A dataframe may start with 00:00:00.010 but may end with 00:00:00.020 or a larger gap.
-
-If you want to do time-based analysis across multiple days, this can cause mis-alignment. To correct, set the _round_timestamps_ argument to true. This will round the timestamps to the delta_t value's precision, dropping nanosecond values. For example, at delta_t=10 and round_timestamps=True, every timestamp will be a multiple of 10 seconds from the minute.
-
-_*Warning*_ Rounding is only available when delta_t is a divisor of 60.
+# Upload file
+pipeline = NoiseAnalysisPipeline(Hydrophone.ORCASOUND_LAB, pqt_folder='pqt', delta_f=10, bands=3, delta_t=1)
+pipeline.generate_parquet_file(dt.datetime(2020, 1, 1), dt.datetime(2020, 2, 1), upload_to_s3=True)
+```
 
 # Built With
 
-- [librosa](https://librosa.org/) - Used for audio spectral analysis. 
-- [ffmpeg](https://ffmpeg.org/) - Used for audio conversion.  
-- [Streamlit](https://streamlit.io/) - Used for the dashboard presentation. 
-- [orca-hls-utils](https://github.com/orcasound/orca-hls-utils) - Used for HLS acquisition.  
+- [librosa](https://librosa.org/) - Used for audio spectral analysis.
+- [ffmpeg](https://ffmpeg.org/) - Used for audio conversion.
+- [Streamlit](https://streamlit.io/) - Used for the dashboard presentation.
+- [orca-hls-utils](https://github.com/orcasound/orca-hls-utils) - Used for HLS acquisition.
 
-# Authors 
+# Authors
 
-- Caleb Case - [GitHub](https://github.com/CaseCal)
+- Caleb Case - [GitHub](https://github.com/CaseCal) [LinkedIn](https://www.linkedin.com/in/caleb-case-76132782/)
 - Mitch Haldeman - [GitHub](https://github.com/mitchhaldeman) [LinkedIn](https://www.linkedin.com/in/mitchhaldeman/)
 - Grant Savage - [GitHub](https://github.com/savageGrant)
 
-# Acknowledgments 
+# Acknowledgments
 
-- Thanks to Valentina Staneva, Val and Scott Veirs, Ben Hendricks, and everyone else connected to the Orcasounds org for their input and guidance.  
-- Thanks to Megan Hazen and the rest of the UW MSDS faculty for their teachings and guidance.  
+- Thanks to Valentina Staneva, Val and Scott Veirs, Ben Hendricks, and everyone else connected to the Orcasounds org for their input and guidance.
+- Thanks to Megan Hazen and the rest of the UW MSDS faculty for their teachings and guidance.
