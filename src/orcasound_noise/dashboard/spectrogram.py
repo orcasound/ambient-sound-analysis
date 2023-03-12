@@ -3,8 +3,8 @@ import datetime as dt
 import streamlit as st
 import plotly.graph_objects as go
 
-from ..analysis import accessor
-from ..utils import Hydrophone
+from src.orcasound_noise.analysis import accessor
+from src.orcasound_noise.utils import Hydrophone
 
 
 def create_tab():
@@ -27,7 +27,7 @@ def create_tab():
         delta_t = st.selectbox(
             'Delta t',
             [0.1, 0.5, 1, 10],
-            index=3
+            index=2
         )
 
     with col3:
@@ -46,13 +46,13 @@ def create_tab():
     delta_f = band_ref[band]
 
     with col4:
-        start_date = st.date_input("Start Date", value=dt.date(2023,2,2))
+        start_date = st.date_input("Start Date", value=dt.date(2020,2,2))
 
     with col5:
         start_time = st.time_input("Start Time", value=dt.time(0,0,0))
 
     with col6:
-        end_date = st.date_input("End Date", value=dt.date(2023,2,3))
+        end_date = st.date_input("End Date", value=dt.date(2020,2,3))
 
     with col7:
         end_time = st.time_input("End Time", value=dt.time(0,0,0))
