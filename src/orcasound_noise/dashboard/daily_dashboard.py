@@ -19,7 +19,7 @@ def create_tab():
 
     # Choose dates
     col1, col2, col3 = st.columns(3)
-    anchor_date = dt.date(2022, 1, 1)
+    anchor_date = dt.date(2020, 1, 1)
     with col1:
         start_date = st.date_input(
             "Start Date", 
