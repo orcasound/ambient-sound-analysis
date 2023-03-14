@@ -90,12 +90,12 @@ class DailyNoiseAnalysis:
             showlegend=False,
             name='Mean Noise',
         ))
-        fig.add_trace(go.Scatter(
-            x=x,
-            y=smooth(mean_series, mean_smoothing*1000),
-            name='Trend Line',
-            line_color="#0000ff"
-        ))
+        # fig.add_trace(go.Scatter(
+        #     x=x,
+        #     y=smooth(mean_series, mean_smoothing*1000),
+        #     name='Trend Line',
+        #     line_color="#0000ff"
+        # ))
 
 
         fig.update_traces(mode='lines')
