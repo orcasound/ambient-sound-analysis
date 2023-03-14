@@ -7,6 +7,8 @@ from plotly.subplots import make_subplots
 
 from src.orcasound_noise.analysis import accessor
 from src.orcasound_noise.utils.hydrophone import Hydrophone
+from src.orcasound_noise.pipeline import pipeline
+from src.orcasound_noise.pipeline import acoustic_util
 
 
 def create_tab():
@@ -14,7 +16,7 @@ def create_tab():
     st.write("Broadband Comparison")
 
     col1, col2, col3 = st.columns(3)
-    col4, col5, col6, col7 = st.columns(4)
+    col4, col5, col6 = st.columns(3)
 
     with col1:
         # Choose Hydrophone
@@ -41,8 +43,19 @@ def create_tab():
     with col4:
         start_date_range = st.date_input("Start Date", value=dt.date(2020,2,2), key="broad_s_date")
 
-    with col6:
+    with col5:
         start_compare_date = st.date_input("Start of Compared Date", value=dt.date(2020,2,9), key="broad_e_date")
+
+    with col6:
+        reference = st.radio(
+            'Reference Level',
+            ('Full Scale', 'Ancient Ambient'),
+            key='comp_ref'
+        )
+    if reference == 'Ancient Ambient':
+        aa = True
+    else:
+        aa = False
 
     start = dt.datetime.combine(start_date_range, dt.time(0,0,0))
     end = start+dt.timedelta(days=number_of_days_to_compare)
@@ -67,6 +80,18 @@ def create_tab():
     if data_available:
         # hydro_df = get_summary_dfs(selected_hydrophone, start, end)
         # compare_df = get_summary_dfs(selected_hydrophone, start_compare, end_compare)
+
+        if aa:
+            ship = pipeline.NoiseAnalysisPipeline(Hydrophone[selected_hydrophone.upper().replace(" ", "_")], delta_f=1,delta_t = 1)
+            aa_start = ship.get_ancient_ambient(dt.datetime.combine(end,dt.time(0,0,0)), dB=False)
+            aa_compare = ship.get_ancient_ambient(dt.datetime.combine(end_compare,dt.time(0,0,0)), dB=False)
+            start_df = acoustic_util.abs_to_dB(start_df, ref=aa_start, columns=['Level'])
+            compare_df = acoustic_util.abs_to_dB(compare_df, ref=aa_compare, columns=['Level'])
+        else:
+            start_df = acoustic_util.abs_to_dB(start_df, columns=['Level'])
+            compare_df = acoustic_util.abs_to_dB(compare_df, columns=['Level'])
+
+
         fig = make_subplots(
             cols=1,
             rows=1,
