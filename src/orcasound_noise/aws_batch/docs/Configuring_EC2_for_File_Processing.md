@@ -34,6 +34,8 @@ admins of the orcasound AWS account, and typically provided in the form of addin
          terminate/delete the instance (and volume) once you are done. By default, the EBS volumes provisioned should be
          deleted automatically when the EC2 instance is terminated, but it never hurts to verify!
    6. #### Launch the Instance
+   7. #### Apply a project tag to the instance
+        Using tags helps the Orcasound team track expenses for specific projects.
 ## 3. Connect to the Instance.
    This guide uses SSH. When you click on the instance id in AWS console it will bring you to page with the instance
    information. In the top-right there should be a "Connect" button which will provide step-by-step SSH instructions.
@@ -101,3 +103,11 @@ admins of the orcasound AWS account, and typically provided in the form of addin
 Do not overlook this step. Since these instances require a large amount of storage they can be quite expensive to leave
 in a STOPPED state. If you plan on reusing the instance frequently you could likely create an image or template from the
 existing instance. This would save on setup times without racking up large storage costs.
+
+
+## Other Notes
+If you find you are running out of space on your EC2 instance, you can expand the volume via the AWS console and then
+attach the additional space to the existing partition. [See AWS docs](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-modify-volume.html?icmpid=docs_ec2_console)
+
+
+To monitor the cpu and memory utilization of your instance I recommend using nmon. `sudo apt-get install nmon`
