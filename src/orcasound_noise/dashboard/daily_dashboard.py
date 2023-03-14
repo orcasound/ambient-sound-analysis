@@ -48,7 +48,7 @@ def create_tab():
     with col2:
         end_date = st.date_input(
             "End Date", 
-            start_date + dt.timedelta(days=30), 
+            start_date + dt.timedelta(days=7), 
             min_value=start_date, 
             max_value=dt.date.today()
         )
