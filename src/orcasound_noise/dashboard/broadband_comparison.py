@@ -1,13 +1,9 @@
 import datetime as dt
 from copy import deepcopy
 
-import pandas as pd
 import streamlit as st
-import plotly.express as px
-import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
 
 from src.orcasound_noise.analysis import accessor
 from src.orcasound_noise.utils.hydrophone import Hydrophone
