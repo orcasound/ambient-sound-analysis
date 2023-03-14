@@ -1,8 +1,8 @@
 import streamlit as st
 
-from src.orcasound_noise.dashboard import daily_dashboard, dashboard_3, spectrogram
+from src.orcasound_noise.dashboard import daily_dashboard, broadband_comparison, spectrogram
 
-dailyTab, specTab, tab3 = st.tabs(["Daily Noise", "Spectrogram", "Tab3"])
+dailyTab, specTab, comparisonTab = st.tabs(["Daily Noise", "Spectrogram", "Broadband Comparison"])
 
 with dailyTab:
     daily_dashboard.create_tab()
@@ -10,5 +10,5 @@ with dailyTab:
 with specTab:
     spectrogram.create_tab()
 
-with tab3:
-    dashboard_3.create_tab()
+with comparisonTab:
+    broadband_comparison.create_tab()

@@ -1,18 +1,21 @@
 import datetime as dt
+from copy import deepcopy
 
 import streamlit as st
 import plotly.graph_objects as go
 
 from src.orcasound_noise.analysis import accessor
 from src.orcasound_noise.utils import Hydrophone
+from src.orcasound_noise.pipeline import pipeline
+from src.orcasound_noise.pipeline import acoustic_util
 
 
 def create_tab():
-    # Title
-    st.write("Spectrogram")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, radio = st.columns([3,1,1,2])
     col4, col5, col6, col7 = st.columns(4)
+
+    aa = False
 
     with col1:
         # Choose Hydrophone
@@ -23,25 +26,36 @@ def create_tab():
             key='spec_hydro'
         )
 
+    delta_ts, delta_fs, _ = accessor.NoiseAccessor(Hydrophone[selected_hydrophone.upper().replace(" ", "_")]).get_options()
+
     with col2:
         delta_t = st.selectbox(
             'Delta t',
-            [0.1, 0.5, 1, 10],
-            index=2
+            delta_ts
         )
 
     with col3:
         band = st.selectbox(
             'Octave Bands',
-            ["1", "1/3", "1/6", "1/12", "1/24"], 
-            index=1
+            delta_fs
         )
 
-    band_ref = {"1": "1oct",
-               "1/3": "3oct",
-               "1/6": "6oct",
-               "1/12": "12oct",
-               "1/24": "24oct"
+    with radio:
+        reference = st.radio(
+            'Reference Level',
+            ('Full Scale', 'Ancient Ambient')
+        )
+
+    if reference == 'Ancient Ambient':
+        aa = True
+    elif reference == 'Full Scale':
+        aa = False
+
+    band_ref = {1: "1oct",
+               3: "3oct",
+               6: "6oct",
+               12: "12oct",
+               24: "24oct"
     }
     delta_f = band_ref[band]
 
@@ -60,20 +74,34 @@ def create_tab():
     start = dt.datetime.combine(start_date, start_time)
     end = dt.datetime.combine(end_date, end_time)
 
+    @st.cache
+    def get_spec_dfs(selected_hydrophone):
+        return accessor.NoiseAccessor(Hydrophone[selected_hydrophone.upper().replace(" ", "_")]).create_df(start=start,end=end, delta_t=delta_t, delta_f=delta_f)
+
     # Get data
-    try:  
-        @st.cache
-        def get_summary_dfs(hydrophone):
-            return accessor.NoiseAcccessor(Hydrophone[hydrophone.upper().replace(" ", "_")]).create_df(start=start, end=end, 
-                                                                                                       delta_t=delta_t, delta_f = delta_f)
-        hydro_df = get_summary_dfs(selected_hydrophone)
+    try:                                                                    
+        hydro_df = deepcopy(get_spec_dfs(selected_hydrophone))
         data_available = True
     except:
         data_available = False
 
     # Plot data
     if data_available:
-        fig = go.Figure(data=go.Heatmap(x=hydro_df.index, y=hydro_df.columns, z=hydro_df.values.transpose(),colorscale='Viridis',
+        if aa:
+            aa_df = hydro_df
+            ship = pipeline.NoiseAnalysisPipeline(Hydrophone[selected_hydrophone.upper().replace(" ", "_")], delta_f=1,
+                                                  delta_t = delta_t, bands=delta_f)
+            dates = [i.date() for i in aa_df.index]
+            dates = list(set(dates))
+
+            for date in dates:
+                aa = ship.get_ancient_ambient(dt.datetime.combine(date,dt.time(0,0,0)))
+                aa_df.loc[aa_df.index.date == date] = acoustic_util.dBFS_to_aa(aa_df.loc[aa_df.index.date == date], aa)
+            out_df = aa_df
+        else:
+            out_df = hydro_df
+
+        fig = go.Figure(data=go.Heatmap(x=out_df.index, y=out_df.columns, z=out_df.values.transpose(),colorscale='Viridis',
                     colorbar={"title": 'Magnitude'}))
         fig.update_layout(
             title="Hydrophone Power Spectral Density",

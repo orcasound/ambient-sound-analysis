@@ -13,7 +13,7 @@ class DailyNoiseAnalysis:
     def __init__(self, hydrophone) -> None:
         self.accessor = NoiseAccessor(hydrophone)
 
-    def get_daily_df(self, target_date):
+    def get_daily_df(self, target_date, **kwargs):
         """
         Creates a dataframe of one days worth of data.
 
@@ -24,7 +24,7 @@ class DailyNoiseAnalysis:
 
         return self.accessor.create_df(start=target_date, end=target_date + dt.timedelta(days=1), round_timestamps=True)
 
-    def create_daily_noise_summary_df(self, start_date, num_days):
+    def create_daily_noise_summary_df(self, start_date, num_days, **kwargs):
         # Compile
         start_date = dt.datetime.combine(start_date, dt.time.min)
         # daily_dfs = [self.get_daily_df(start_date + dt.timedelta(days=i)) for i in range(num_days)]
@@ -47,11 +47,10 @@ class DailyNoiseAnalysis:
         }
 
     @staticmethod
-    def plot_daily_noise(df_dict, band=[63, 8000], mean_smoothing=500, error_smoothing=500):
+    def plot_daily_noise(df_dict, band=[63, 8000], mean_smoothing=60, error_smoothing=60):
         mean_df = df_dict["mean"] 
         min_df = df_dict["min"] 
         max_df = df_dict["max"] 
-        count = df_dict["count"]
 
         # Prepare Series
         if isinstance(band, Iterable):
@@ -61,13 +60,20 @@ class DailyNoiseAnalysis:
         else:
             mean_series, min_series, max_series = mean_df[band], min_df[band], max_df[band]
         
+
         # Smoothing
         def smooth(series, smooth_amount):
             looped_series = pd.concat([series[-smooth_amount:], series])
-            smoothed = looped_series.rolling(smooth_amount).mean()
+            smoothed = looped_series.rolling(smooth_amount, min_periods=1, center=True).mean()
+
+            # Outlier removal
+            smoothed = smoothed.clip(
+                lower=smoothed.quantile(0.001),
+                upper=smoothed.quantile(0.999)
+                )
             return smoothed[smooth_amount: ]
 
-        # PLot
+        # Plot
         fig = go.Figure()
         x = pd.Series(mean_series.index)
         x_rev = x[::-1]
@@ -84,16 +90,13 @@ class DailyNoiseAnalysis:
             showlegend=False,
             name='Mean Noise',
         ))
-        # fig.add_trace(go.Scatter(
-        #     x=x,
-        #     y=smooth(max_series, error_smoothing),
-        #     name='Max Noise',
-        # ))
-        # fig.add_trace(go.Scatter(
-        #     x=x,
-        #     y=smooth(min_series, error_smoothing),
-        #     name='Min Noise',
-        # ))
+        fig.add_trace(go.Scatter(
+            x=x,
+            y=smooth(mean_series, mean_smoothing*1000),
+            name='Trend Line',
+            line_color="#0000ff"
+        ))
+
 
         fig.update_traces(mode='lines')
 
@@ -111,11 +114,8 @@ class DailyNoiseAnalysis:
     @staticmethod
     def plot_broadband_daily_noise(vals):
         # PLot
-        fig, ax = plt.subplots()
-        vals.plot.bar(ax=ax)
-        ax.get_legend().remove()
 
-        return fig
+        return go.Figure([go.Bar(x=vals.index, y=vals['Level'])])
 
 
 
