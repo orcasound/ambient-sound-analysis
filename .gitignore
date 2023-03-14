@@ -1,4 +1,5 @@
 .venv
+.venv*
 build/
 *.egg
 *.egg-info
