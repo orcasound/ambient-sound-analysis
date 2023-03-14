@@ -423,3 +423,9 @@ def aa_to_dBFS(df, aa):
     """
 
     return df - abs(aa)
+
+def abs_to_dB(df, ref=np.max, columns=None):
+    if columns == None:
+        columns = list(df.columns)
+    vals = librosa.amplitude_to_db(df, ref=ref)
+    return pd.DataFrame(vals,index=list(df.index),columns=columns)
