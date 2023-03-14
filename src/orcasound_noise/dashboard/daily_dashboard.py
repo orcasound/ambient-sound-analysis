@@ -72,7 +72,7 @@ def create_tab():
 
     if aa:
         aa_df = summary_dfs
-        ship = pipeline.NoiseAnalysisPipeline(Hydrophone[selected_hydrophone.upper().replace(" ", "_")], delta_f=1,delta_t = 1)
+        ship = pipeline.NoiseAnalysisPipeline(Hydrophone[selected_hydrophone.upper().replace(" ", "_")], delta_f=1,delta_t = 1, no_auth=True)
 
         aa = ship.get_ancient_ambient(dt.datetime.combine(end_date,dt.time(0,0,0)))
         aa_df['mean'] = acoustic_util.dBFS_to_aa(aa_df['mean'], aa)

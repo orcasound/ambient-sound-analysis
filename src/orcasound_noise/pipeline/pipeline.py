@@ -20,7 +20,7 @@ from ..utils.file_connector import S3FileConnector
 
 class NoiseAnalysisPipeline:
 
-    def __init__(self, hydrophone: Hydrophone, delta_t, delta_f, bands=None, wav_folder=None, pqt_folder=None):
+    def __init__(self, hydrophone: Hydrophone, delta_t, delta_f, bands=None, wav_folder=None, pqt_folder=None, no_auth=False):
         """
         Pipeline object for generating rolled-up PDS parquet files. 
 
@@ -32,11 +32,12 @@ class NoiseAnalysisPipeline:
         * bands: int. default=None. If not None this value selects how many octave subdivisions the frequency spectrum should 
           be divided into, where each frequency step is 1/Nth of an octave with N=bands. Based on the ISO R series.
           Accepts values 1, 3, 6, 12, or 24.
+        * no_auth: Bool, default False. Set to True to allow anonymous downloads. Uploading is not available when True.
         """
 
         # Conenctions
         self.hydrophone = hydrophone.value
-        self.file_connector = S3FileConnector(hydrophone)
+        self.file_connector = S3FileConnector(hydrophone, no_sign=no_auth)
 
         # Local storage
         if wav_folder:
