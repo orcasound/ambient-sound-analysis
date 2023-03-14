@@ -90,7 +90,7 @@ def create_tab():
         if aa:
             aa_df = hydro_df
             ship = pipeline.NoiseAnalysisPipeline(Hydrophone[selected_hydrophone.upper().replace(" ", "_")], delta_f=1,
-                                                  delta_t = delta_t, bands=delta_f)
+                                                  delta_t = delta_t, bands=delta_f, no_auth=True)
             dates = [i.date() for i in aa_df.index]
             dates = list(set(dates))
 

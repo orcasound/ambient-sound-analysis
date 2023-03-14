@@ -82,7 +82,7 @@ def create_tab():
         # compare_df = get_summary_dfs(selected_hydrophone, start_compare, end_compare)
 
         if aa:
-            ship = pipeline.NoiseAnalysisPipeline(Hydrophone[selected_hydrophone.upper().replace(" ", "_")], delta_f=1,delta_t = 1)
+            ship = pipeline.NoiseAnalysisPipeline(Hydrophone[selected_hydrophone.upper().replace(" ", "_")], delta_f=1,delta_t = 1, no_auth=True)
             aa_start = ship.get_ancient_ambient(dt.datetime.combine(end,dt.time(0,0,0)), dB=False)
             aa_compare = ship.get_ancient_ambient(dt.datetime.combine(end_compare,dt.time(0,0,0)), dB=False)
             start_df = acoustic_util.abs_to_dB(start_df, ref=aa_start, columns=['Level'])
