@@ -48,15 +48,19 @@ class NoiseAccessor:
                 finally:
                     dfs.append(this_df)
 
-        # Compile and clean
+        # Compile
         df = pd.concat(dfs, axis=0)
         df = df[~df.index.duplicated(keep='first')]
-        df = df[(df.index >= start) & (df.index <= end)]
 
         # Round
         if round_timestamps:
             df.index = pd.Series(df.index).apply(self._round_seconds, round_to=delta_t)
             df = df.asfreq(str(delta_t) + 's')
+
+        # Clean
+        df = df[~df.index.duplicated(keep='first')]
+        df = df[(df.index >= start) & (df.index <= end)]
+
         return df
     
     @staticmethod
