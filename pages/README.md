@@ -64,3 +64,5 @@ The cloud dashbaord is assocciated with the Orcasound group in github: any membe
 The free hosted level only has 1 GB ram, and will crash if more than this is attempted. Once crashed, it must be restarted from the admin page.
 
 ![image](doc_images/Streamlit_Cloud.png)
+
+The dashboard will open at localhost.

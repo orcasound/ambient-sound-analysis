@@ -26,6 +26,7 @@ with ref_col:
     reference = st.radio(
         'Reference Level',
         ('Full Scale', 'Ancient Ambient'),
+        index=1,
         key='daily_ref'
     )
 
