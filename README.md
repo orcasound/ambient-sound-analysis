@@ -133,7 +133,7 @@ pipeline.generate_parquet_file(dt.datetime(2020, 1, 1), dt.datetime(2020, 2, 1),
 
 - Caleb Case - [GitHub](https://github.com/CaseCal) [LinkedIn](https://www.linkedin.com/in/caleb-case-76132782/)
 - Mitch Haldeman - [GitHub](https://github.com/mitchhaldeman) [LinkedIn](https://www.linkedin.com/in/mitchhaldeman/)
-- Grant Savage - [GitHub](https://github.com/savageGrant)
+- Grant Savage - [GitHub](https://github.com/savageGrant) [LinkedIn](https://www.linkedin.com/in/grantsavage/)
 
 # Acknowledgments
 
