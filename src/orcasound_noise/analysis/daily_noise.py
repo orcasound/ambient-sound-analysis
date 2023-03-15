@@ -114,8 +114,7 @@ class DailyNoiseAnalysis:
     @staticmethod
     def plot_broadband_daily_noise(vals):
         # PLot
-
-        return go.Figure([go.Bar(x=vals.index, y=vals['Level'])])
+        return go.Figure([go.Bar(x=vals.index, y=vals["0"])])
 
 
 
