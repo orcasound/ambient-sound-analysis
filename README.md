@@ -8,6 +8,8 @@ This open source project has three main components:
 - The [accessor](src/orcasound_noise/analysis/README.md) that reads, filters and collates these files to produce PSD dataframes with specific time ranges
 - The [dashboard](pages/README.md) that displays key results using [Streamlit](https://streamlit.io/). The live dashboard is directly connected to the repo and visible [here](https://orcasound-ambient-sound-analysis-dashboard-boh8ls.streamlit.app)
 
+Guides to recreate the AWS environments used to process the hydrophone data can be found in the [aws_batch](src/orcasound_noise/aws_batch/README.md) directory.
+
 # Quickstart
 
 ## Install
@@ -131,7 +133,7 @@ pipeline.generate_parquet_file(dt.datetime(2020, 1, 1), dt.datetime(2020, 2, 1),
 
 - Caleb Case - [GitHub](https://github.com/CaseCal) [LinkedIn](https://www.linkedin.com/in/caleb-case-76132782/)
 - Mitch Haldeman - [GitHub](https://github.com/mitchhaldeman) [LinkedIn](https://www.linkedin.com/in/mitchhaldeman/)
-- Grant Savage - [GitHub](https://github.com/savageGrant)
+- Grant Savage - [GitHub](https://github.com/savageGrant) [LinkedIn](https://www.linkedin.com/in/grantsavage/)
 
 # Acknowledgments
 

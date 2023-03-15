@@ -4,8 +4,8 @@ The accessor is the toolkit used for accessing the stored files. This is done by
 
 Example:
 
-```
-from src.analysis import NoiseAcccessor
+```python
+from src.orcasound_noise.analysis import NoiseAcccessor
 
 ac = NoiseAcccessor(Hydrophone.ORCASOUND_LAB)
 df = ac.create_df(dt.datetime(2023, 2, 1), dt.datetime(2023, 2, 2), delta_t=10, delta_f="3oct")

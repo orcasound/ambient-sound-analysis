@@ -4,6 +4,7 @@ from copy import deepcopy
 import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from scipy import signal
 
 from src.orcasound_noise.analysis import accessor
 from src.orcasound_noise.utils.hydrophone import Hydrophone
@@ -49,6 +50,7 @@ with col6:
     reference = st.radio(
         'Reference Level',
         ('Full Scale', 'Ancient Ambient'),
+        index=1,
         key='comp_ref'
     )
 if reference == 'Ancient Ambient':
@@ -99,13 +101,15 @@ if data_available:
 
     bar_trace = go.Scatter(
         x=start_df.index,
-        y=start_df.iloc[:, 0],
+        y=signal.savgol_filter(start_df.iloc[:, 0],
+                           53, # window size used for filtering
+                           3), # order of fitted polynomial
         name="original broadband",
     )
 
     scatter_trace = go.Scatter(
         x=compare_df.index,
-        y=compare_df.iloc[:, 0],
+        y=signal.savgol_filter(compare_df.iloc[:, 0], 53, 3),
         name="compared broadband",
         line_color="#ee0000",
         opacity=0.5,
