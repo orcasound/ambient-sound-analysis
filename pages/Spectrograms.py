@@ -42,7 +42,8 @@ with col3:
 with radio:
     reference = st.radio(
         'Reference Level',
-        ('Full Scale', 'Ancient Ambient')
+        ('Full Scale', 'Ancient Ambient'),
+        index=1
     )
 
 if reference == 'Ancient Ambient':
@@ -108,6 +109,7 @@ if data_available:
         yaxis_title="Frequency (Hz)",
         legend_title="Magnitude"
         )
+    fig.update_yaxes(type="log")
 
 else:
     fig = go.Figure()
