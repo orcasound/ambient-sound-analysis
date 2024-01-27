@@ -97,36 +97,6 @@ def calculatePSD(wavFile, samplerate, startSecs, Nsamples, fhigh, Nfft, fftWindo
         plt.show()
     return freqs, 20*np.log10(resampled_psd) + calConstant
 
-def calculatePSD_0(wavFile, samplerate, startSecs, Nsamples, fhigh, Nfft, fftWindow, calConstant):
-
-    samples, secsIntoWav = getSamples(startSecs, Nsamples, wavFile)
-    data = []
-    if fftWindow == "Hamming":  data = samples * np.hamming(len(samples))
-    if fftWindow == "Blackman": data = samples * np.blackman(len(samples))
-
-    psd = np.abs(np.fft.rfft(data, Nfft))
-    df = fhigh / len(psd)
-
-    psdPerHz = np.ones(samplerate//2 + 1)
-    f_values = np.fft.fftfreq(Nfft, d=1. / samplerate)
-    f_values = f_values[0:Nfft//2+1]  # drop the un-needed negative frequencies
-    f_values[-1] = f_values[-2]
-
-    ipsd = 0
-    for i in range(2,samplerate//2 + 1):
-        while i >= f_values[ipsd+1] and i < f_values[-2]:
-            ipsd += 1  # find the next fft psd bin
-        wt = (psd[ipsd+1] - psd[ipsd])/(f_values[ipsd+1] - f_values[ipsd])
-        psdPerHz[i] = psd[ipsd] + wt * (i - f_values[ipsd])  # here I am interpolating to get per Hz values from the fft's frequency bins
-    dbsPerHz = 20*np.log10(psdPerHz) + calConstant
-
-    totPwr = np.sum(psdPerHz)
-
-    dbsPerHz[1] = 20*np.log10(totPwr) + calConstant  # save total power as broadband db
-    dbsPerHz[0] = startSecs  # save the start time in secs into this wav file
-    return dbsPerHz, secsIntoWav, 20*np.log10(psd) + calConstant  # N. B.  I put these two pieces of metadata in the dbsPerHz array so they are
-                                    #  stored with the psd valaues in any row of any parquet file
-
 def get_wav_files(wavDir, hydrophone, dt_start, dt_end, max_files=None, wavFileLength_seconds=600, overwrite_output=True):
     wav_folder = wavDir
     stream = DateRangeHLSStream(
