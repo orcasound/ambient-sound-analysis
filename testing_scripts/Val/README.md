@@ -1,5 +1,6 @@
 #  This Python script can download wav files from a S3 bucket at orcasound.net
 #  ts segments in the selected datetime interval are downloaded and converted to wav files
+#  Then the power spectral density  per hertz is calculated for a selected single time interval
 
 ##  Run pip3 install -m requirements.txt     in your code's working directory and virtual environment
 
@@ -13,12 +14,10 @@
 * dt_stop =  dt.datetime(2023, 12, 26, 16, 0)
 * hydro =  Hydrophone['ORCASOUND_LAB']
 * wavFileSecs = 24 * 60 * 60
-* flow = 50
 * deltaT = 60  # one second psd's
-
 * calConstant = 0 #-35
 * Nfft = 2048
-# Choose "Hamming" or "Blackman"
+* Choose "Hamming" or "Blackman"
 * fftWindow = "Blackman"
 * fftWindow = "Hamming"
 * setPlotInterpolaiton = True    # to plot interpolation to 1 hz
