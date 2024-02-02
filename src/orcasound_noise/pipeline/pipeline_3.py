@@ -114,7 +114,7 @@ class NoiseAnalysisPipeline:
                 start_time = [int(x) for x in clip_start_time.split('_')]
                 start_time = dt.datetime(*start_time)
                 if wav_file_path is not None:
-                    dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=1, delta_f=self.delta_f,
+                    dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=self.delta_t, delta_f=self.delta_f,
                                        transforms=[],
                                        bands=self.bands, **kwargs)
                     psd_result.append(dfs[0])
@@ -127,37 +127,7 @@ class NoiseAnalysisPipeline:
             logging.warning(f"No data found for {start} to {end}")
             return None, None
 
-        psd_result = pd.concat(psd_result)
-        broadband_result = pd.concat(broadband_result)
-
-        psd_result = self.lin_log_avg(psd_result)
-        broadband_result = self.lin_log_avg(broadband_result)
-
-        return psd_result, broadband_result
-
-    def lin_log_avg(self, df):
-        cols = df.columns
-        ind = df.index
-        test = df.to_numpy()
-        test = librosa.db_to_amplitude(test)
-        test = pd.DataFrame(test, columns=cols)
-        test['ind'] = ind
-        test = test.set_index(pd.DatetimeIndex(test['ind']))
-        test = test.iloc[:, :-1]
-        if self.delta_t == 1:
-            test = test.resample('1s').mean
-        if self.delta_t == 60:
-            test = test.resample('1Min').mean()
-        cols = test.columns
-        ind = test.index
-        test = test.fillna(test.mean())
-        test = test.to_numpy()
-        test = librosa.amplitude_to_db(np.abs(test), ref=np.max)
-        test = pd.DataFrame(test, columns=cols)
-        test['ind'] = ind
-        test = test.set_index(pd.DatetimeIndex(test['ind']))
-        test = test.iloc[:, :-1]
-        return test
+        return pd.concat(psd_result), pd.concat(broadband_result)
 
     def generate_parquet_file(self, start: dt.datetime, end: dt.datetime, pqt_folder_override=None,
                               upload_to_s3=False):
