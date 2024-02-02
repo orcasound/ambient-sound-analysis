@@ -167,7 +167,8 @@ def wav_to_array(filepath,
     y, sr = librosa.load(filepath, sr=None)
 
     n_fft = int(sr/delta_f)
-    hop_length = int(delta_t*sr)
+    # hop_length = int(delta_t*sr)
+    hop_length = int(n_fft/2)
 
     D_highres = librosa.stft(y, hop_length=hop_length, n_fft=n_fft)
     spec = librosa.amplitude_to_db(np.abs(D_highres), ref=ref)
@@ -200,7 +201,41 @@ def wav_to_array(filepath,
 
         return oct_df, rms_df
     else:
+        df = array_resampler(df = df, delta_t = delta_t)
         return df, rms_df
+
+
+def array_resampler(df, delta_t = 1):
+    """
+    This function takes in the data frame of spectrogram data, converts it to amplitude, averages over time frame, and converts it back to db.
+    
+    Args:
+        df: data frame of spectrogram data
+        delta_t: Int, number of seconds per sample
+        
+    Returns:
+        resampled_df: data frame of spectrogram data. 
+    """
+    cols = df.columns
+    ind = df.index
+    resampled_df = df.to_numpy()
+    resampled_df = librosa.db_to_amplitude(resampled_df)
+    resampled_df = pd.DataFrame(resampled_df, columns= cols)
+    resampled_df['ind'] = ind
+    resampled_df = resampled_df.set_index(pd.DatetimeIndex(resampled_df['ind']))
+    
+    sample_length = str(delta_t) + 's'
+    
+    resampled_df = resampled_df.resample(sample_length).mean()
+    resampledIndex = resampled_df['ind']
+    resampled_df = resampled_df.drop(columns = ['ind'])
+    
+    resampled_df = resampled_df.to_numpy()
+    resampled_df = librosa.amplitude_to_db(resampled_df, ref = np.max)
+    
+    resampled_df = pd.DataFrame(resampled_df, index = resampledIndex)
+    
+    return resampled_df
 
 
 def ancient_ambient(df):
