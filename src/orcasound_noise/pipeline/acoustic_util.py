@@ -134,9 +134,7 @@ def wav_to_array(filepath,
                  t0=datetime.datetime.now(),
                  delta_t=1,
                  delta_f=10,
-                 transforms=[
-                     wavelet_denoising
-                 ],
+                 transforms=[wavelet_denoising],
                  ref=np.max,
                  bands=None
                  ):
@@ -148,7 +146,7 @@ def wav_to_array(filepath,
 
     Args:
         filepath: file path to .wav
-        to: datetime.  starting time of the recording. 
+        t0: datetime.  starting time of the recording.
         delta_t: Int, number of seconds per sample
         delta_f: Int, number of hz per frequency band
         n_fft: int. number of points in the acquired time-domain signal.  delta F = sample rate/n_fft
@@ -166,7 +164,6 @@ def wav_to_array(filepath,
     y, sr = librosa.load(filepath, sr=None)
 
     n_fft = int(sr / delta_f)
-    # hop_length = int(delta_t*sr)
     hop_length = int(n_fft / 2)
 
     D_highres = librosa.stft(y, hop_length=hop_length, n_fft=n_fft)
@@ -183,7 +180,7 @@ def wav_to_array(filepath,
     delta_f = sr / n_fft
     DT = D_highres.transpose()
     for i in range(len(DT)):
-        rms.append(np.sqrt(delta_f * np.sum(np.abs(DT[i, 1]))))
+        rms.append(delta_f * np.sum(np.abs(DT[i, :])))
     df = pd.DataFrame(spec.transpose(), columns=freqs, index=times)
     df = df.astype(float).round(2)
     df.columns = df.columns.map(str)
@@ -191,11 +188,14 @@ def wav_to_array(filepath,
     rms_df = pd.DataFrame(rms, index=times)
     rms_df = rms_df.astype(float).round(2)
     rms_df.columns = rms_df.columns.map(str)
+    rms_df = array_resampler_bands(df=rms_df, delta_t=delta_t)
 
+    # Note - Need to check if bands and broadband are correctly converted
     if bands is not None:
 
         oct_unscaled, fm = spec_to_bands(np.abs(DT), bands, delta_f, freqs=freqs, ref=ref)
         oct_df = pd.DataFrame(oct_unscaled, columns=fm, index=times).astype(float).round(2)
+        oct_df = array_resampler_bands(df=oct_df, delta_t=delta_t)
 
         return oct_df, rms_df
     else:
@@ -229,6 +229,31 @@ def array_resampler(df, delta_t=1):
 
     resampled_df = resampled_df.to_numpy()
     resampled_df = librosa.amplitude_to_db(resampled_df, ref=np.max)
+
+    resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
+
+    return resampled_df
+
+
+def array_resampler_bands(df, delta_t=1):
+    """
+    This function takes in the data frame for bands or broadband, averages over time frame, and converts it to db.
+
+    Args:
+        df: data frame of spectrogram data
+        delta_t: Int, number of seconds per sample
+
+    Returns:
+        resampled_df: data frame of broadband data.
+    """
+    resampled_df = df
+    sample_length = str(delta_t) + 's'
+
+    resampled_df = resampled_df.resample(sample_length).mean()
+    resampledIndex = resampled_df.index
+
+    resampled_df = resampled_df.to_numpy()
+    resampled_df = 20.0 * np.log10(resampled_df)
 
     resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
 

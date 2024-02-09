@@ -8,10 +8,6 @@ import logging
 # Third part imports
 import numpy as np
 import pandas as pd
-import scipy
-from scipy import signal
-from scipy.io import wavfile
-import librosa
 
 # Local imports
 from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
@@ -117,8 +113,18 @@ class NoiseAnalysisPipeline:
                     dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=self.delta_t, delta_f=self.delta_f,
                                        transforms=[],
                                        bands=self.bands, **kwargs)
-                    psd_result.append(dfs[0])
-                    broadband_result.append(dfs[1])
+                    if len(psd_result) != 0:
+                        if psd_result[-1].last_valid_index() == dfs[0].first_valid_index():
+                            psd_result[-1] = psd_result[-1][:-1]
+                            broadband_result[-1] = broadband_result[-1][:-1]
+                            psd_result.append(dfs[0])
+                            broadband_result.append(dfs[1])
+                        else:
+                            psd_result.append(dfs[0])
+                            broadband_result.append(dfs[1])
+                    else:
+                        psd_result.append(dfs[0])
+                        broadband_result.append(dfs[1])
             except FileNotFoundError as fnf_error:
                 logging.debug("%s clip failed to download: Error %s", clip_start_time, fnf_error)
                 pass
@@ -277,39 +283,3 @@ class NoiseAnalysisPipeline:
         pos_df = aa_df.iloc[(date - aa_df.index).total_seconds() > 0]
 
         return pos_df.loc[min(pos_df.index, key=lambda sub: date - sub)].values[0]
-
-    def ben_wav_to_psd(self, wav_dir):
-        '''
-        input_file = audio waveform
-        '''
-        # Error keeps returning ValueError: window is longer than input signal from spectral.py
-        samplerate, input_file = wavfile.read(wav_dir)
-        # ---
-        NFFT = int(samplerate / float(self.delta_f))
-        # -----------
-        # --- FFT WINDOW
-        noverlap_par = int(NFFT * 0.5)
-        window_par = scipy.signal.get_window('hann', Nx=NFFT, fftbins=True)
-        # --- Split in N second snippets, EXCLUDING LEFTOVERS
-        dn = samplerate * int(self.delta_t)
-        loop = int(len(input_file) / (dn))
-        SOUND_arr = [input_file[i * dn: (i * dn) + dn] for i in range(loop)]
-        # ----
-        data = []
-        for it_0 in range(len(SOUND_arr)):
-            SOUND_feed = SOUND_arr[it_0]
-            f_vals, t_vals, SOUND_psd = scipy.signal.spectrogram(SOUND_feed, fs=samplerate, nperseg=NFFT, nfft=NFFT,
-                                                                 window=window_par, noverlap=noverlap_par,
-                                                                 return_onesided=True, scaling='density', mode='psd')
-            #
-            SOUND_psd = np.mean(SOUND_psd, axis=1)
-            # RMS
-            SOUND_psd = SOUND_psd / (np.sqrt(2))
-            #
-            data.append(SOUND_psd)
-        #
-        data = np.copy(data)
-        #
-        data = 10.0 * np.log10(data)
-        #
-        return data
