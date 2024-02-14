@@ -8,19 +8,22 @@ import logging
 # Third part imports
 import numpy as np
 import pandas as pd
-from scipy import signal
-from scipy.io import wavfile
+from multiprocessing import Pool
 
 # Local imports
 from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
 from .acoustic_util import wav_to_array
-from ..utils import Hydrophone
 from ..utils.file_connector import S3FileConnector
+
+from orcasound_noise.pipeline.acoustic_util import wav_to_array
+from orcasound_noise.utils import Hydrophone
+from orcasound_noise.utils.file_connector import S3FileConnector
 
 
 class NoiseAnalysisPipeline:
 
-    def __init__(self, hydrophone: Hydrophone, delta_t, delta_f, bands=None, wav_folder=None, pqt_folder=None, no_auth=False):
+    def __init__(self, hydrophone: Hydrophone, delta_t, delta_f, bands=None, wav_folder=None, pqt_folder=None,
+                 no_auth=False):
         """
         Pipeline object for generating rolled-up PDS parquet files. 
 
@@ -46,7 +49,7 @@ class NoiseAnalysisPipeline:
         else:
             self.wav_folder_td = tempfile.TemporaryDirectory()
             self.wav_folder = self.wav_folder_td.name
-        
+
         if pqt_folder:
             self.pqt_folder = pqt_folder
             self.pqt_folder_td = None
@@ -73,7 +76,19 @@ class NoiseAnalysisPipeline:
         except AttributeError:
             pass
 
-    def generate_psds(self, start: dt.datetime, end: dt.datetime, max_files=None, polling_interval=600, overwrite_output=True, **kwargs):
+    @staticmethod
+    def process_wav_file(args):
+        wav_file_path, start_time, delta_t, delta_f, bands, kwargs = args
+        try:
+            dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=delta_t, delta_f=delta_f, transforms=[],
+                               bands=bands, **kwargs)
+            return dfs[0], dfs[1]
+        except FileNotFoundError as fnf_error:
+            logging.debug(f"{wav_file_path} clip failed to download: Error {fnf_error}")
+            return None, None
+
+    def generate_psds(self, start: dt.datetime, end: dt.datetime, max_files=None, polling_interval=600,
+                      overwrite_output=True, **kwargs):
         """
         Pull ts files from aws and create PSD arrays of them by converting to wav files.
 
@@ -89,8 +104,8 @@ class NoiseAnalysisPipeline:
         Tuple of lists. First is psds and second is broadbands. Each list has one entry per wav_file generated
 
         """
-        #logging.basicConfig(filename='temp_log.log', encoding='utf-8', level=logging.DEBUG)
-
+        # logging.basicConfig(filename='temp_log.log', encoding='utf-8', level=logging.DEBUG)
+        print('#' * 15, "Using Local Pipeline", '#' * 15)
         stream = DateRangeHLSStream(
             'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
             polling_interval,
@@ -99,29 +114,36 @@ class NoiseAnalysisPipeline:
             self.wav_folder,
             overwrite_output
         )
+        print(time.mktime(start.timetuple()), time.mktime(end.timetuple()))
+        tasks = []
+        try:
+            wav_file_paths_and_clip_start_times = stream.get_all_clips()
+            print('#' * 5, "Finished Downloading .ts files", '#' * 5)
 
-        psd_result = []
-        broadband_result = []
-        while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
-            try:
-                wav_file_path, clip_start_time, _ = stream.get_next_clip()
-                if clip_start_time is None:
-                    continue
-                start_time = [int(x) for x in clip_start_time.split('_')]
+            wav_file_paths = wav_file_paths_and_clip_start_times[0]
+            clip_start_time = wav_file_paths_and_clip_start_times[1]
+            assert len(wav_file_paths) == len(clip_start_time)
+
+            for i in range(len(wav_file_paths)):
+                start_time = [int(x) for x in clip_start_time[i].split('_')]
                 start_time = dt.datetime(*start_time)
-                if wav_file_path is not None:
-                    dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=self.delta_t, delta_f=self.delta_f, transforms=[],
-                                       bands=self.bands, **kwargs)
-                    psd_result.append(dfs[0])
-                    broadband_result.append(dfs[1])
-            except FileNotFoundError as fnf_error:
-                logging.debug("%s clip failed to download: Error %s", clip_start_time, fnf_error)
-                pass
+                tasks.append((wav_file_paths[i], start_time, self.delta_t, self.delta_f, self.bands, kwargs))
+
+        except FileNotFoundError as fnf_error:
+            logging.debug("%s clip failed to download: Error %s", clip_start_time, fnf_error)
+            pass
+        # Use a multiprocessing Pool
+        print('#' * 5, "Using Multiprocessing for process_wav_file", '#' * 5)
+        with Pool() as pool:
+            results = pool.map(self.process_wav_file, tasks)
+            # Filter out None results and concatenate
+        psd_result = [r[0] for r in results if r[0] is not None]
+        broadband_result = [r[1] for r in results if r[1] is not None]
 
         if len(psd_result) == 0:
             logging.warning(f"No data found for {start} to {end}")
             return None, None
-        return pd.concat(psd_result), pd.concat(broadband_result)
+        return pd.concat(psd_result).sort_index(), pd.concat(broadband_result).sort_index()
 
     def generate_parquet_file(self, start: dt.datetime, end: dt.datetime, pqt_folder_override=None,
                               upload_to_s3=False):
@@ -164,7 +186,7 @@ class NoiseAnalysisPipeline:
 
         return filePath, broadbandFilePath
 
-    def generate_parquet_file_batch(self, start: dt.datetime, num_files: int, file_length:dt.timedelta, **kwargs):
+    def generate_parquet_file_batch(self, start: dt.datetime, num_files: int, file_length: dt.timedelta, **kwargs):
         """
             Generate a range of parquet files, starting at starttime with given length.
 
@@ -181,10 +203,10 @@ class NoiseAnalysisPipeline:
 
         file_paths = []
         for i in range(num_files):
-            startTime = start + file_length*i
+            startTime = start + file_length * i
             endTime = startTime + file_length
             file_paths.append(self.generate_parquet_file(startTime, endTime, **kwargs))
-        
+
         return file_paths
 
     def process_ancient_ambient(self, ref_time: dt.datetime, dB=True):
@@ -204,11 +226,11 @@ class NoiseAnalysisPipeline:
 
         if dB:
             bb = False
-            amb_band=self.bands
+            amb_band = self.bands
         else:
             bb = True
             amb_band = None
-        files = fc.get_files(start=start_time, end=ref_time, secs_per_sample=self.delta_t, 
+        files = fc.get_files(start=start_time, end=ref_time, secs_per_sample=self.delta_t,
                              hz_bands=amb_band, is_broadband=bb)
 
         pqs = []
@@ -217,7 +239,7 @@ class NoiseAnalysisPipeline:
             tmp_file = tmp_dir.name + '/' + file.split('/')[-1]
             fc.download_file(file, tmp_file)
             pqs.append(pd.read_parquet(tmp_file, engine='pyarrow'))
-            
+
         pq_out = pd.concat(pqs)
 
         mask = (pq_out.index >= start_time) & (pq_out.index < ref_time)
