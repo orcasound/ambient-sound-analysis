@@ -253,7 +253,7 @@ def array_resampler_bands(df, delta_t=1):
     resampledIndex = resampled_df.index
 
     resampled_df = resampled_df.to_numpy()
-    resampled_df = 20.0 * np.log10(resampled_df)
+    resampled_df = librosa.amplitude_to_db(resampled_df, ref=1, top_db=200.0)
 
     resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
 
