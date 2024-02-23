@@ -135,7 +135,7 @@ def wav_to_array(filepath,
                  delta_t=1,
                  delta_f=10,
                  transforms=[wavelet_denoising],
-                 ref=np.max,
+                 ref=1,
                  bands=None
                  ):
     """
@@ -228,7 +228,7 @@ def array_resampler(df, delta_t=1):
     resampledIndex = resampled_df.index
 
     resampled_df = resampled_df.to_numpy()
-    resampled_df = librosa.amplitude_to_db(resampled_df, ref=np.max)
+    resampled_df = librosa.amplitude_to_db(resampled_df, ref=1)
 
     resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
 
@@ -486,7 +486,7 @@ def aa_to_dBFS(df, aa):
     return df - abs(aa)
 
 
-def abs_to_dB(df, ref=np.max, columns=None):
+def abs_to_dB(df, ref=1, columns=None):
     if columns == None:
         columns = list(df.columns)
     vals = librosa.amplitude_to_db(df, ref=ref)
