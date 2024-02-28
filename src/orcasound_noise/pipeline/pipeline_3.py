@@ -8,6 +8,7 @@ import logging
 # Third part imports
 import numpy as np
 import pandas as pd
+import random
 
 # Local imports
 from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
@@ -57,6 +58,7 @@ class NoiseAnalysisPipeline:
         self.delta_f = delta_f
         self.delta_t = delta_t
         self.bands = bands
+        self.ref = self.hydrophone.bb_ref
 
     def __del__(self):
         """"
@@ -73,7 +75,7 @@ class NoiseAnalysisPipeline:
             pass
 
     def generate_psds(self, start: dt.datetime, end: dt.datetime, max_files=None, polling_interval=600,
-                      overwrite_output=True, **kwargs):
+                      overwrite_output=True, ref_lvl=True, **kwargs):
         """
         Pull ts files from aws and create PSD arrays of them by converting to wav files.
 
@@ -82,6 +84,7 @@ class NoiseAnalysisPipeline:
         * max_files: Maximum number of wav files to generate. Use to help limit compute and egress whiel testing.
         * polling_interval: Int, size in secconds of intermediate wav files to generate.
         * overwrite_output: Automatically overwrite existing wav files. If False, will prompt before overwriting
+        * ref_lvl: Adjust broadband decibels based on reference level
         * kwargs: Other keyword args are passed to wav_to_array
 
         # Return
@@ -133,7 +136,10 @@ class NoiseAnalysisPipeline:
             logging.warning(f"No data found for {start} to {end}")
             return None, None
 
-        return pd.concat(psd_result), pd.concat(broadband_result)
+        broadband_result = pd.concat(broadband_result)
+        if ref_lvl:
+            broadband_result = broadband_result - self.ref
+        return pd.concat(psd_result), broadband_result
 
     def generate_parquet_file(self, start: dt.datetime, end: dt.datetime, pqt_folder_override=None,
                               upload_to_s3=False):
@@ -283,3 +289,33 @@ class NoiseAnalysisPipeline:
         pos_df = aa_df.iloc[(date - aa_df.index).total_seconds() > 0]
 
         return pos_df.loc[min(pos_df.index, key=lambda sub: date - sub)].values[0]
+
+    def generate_ref(self, year: dt.datetime, month: dt.datetime, samples=30):
+        """
+            Generate a 5th percentile broadband reference level for a give hydrophone, year, and month.
+
+            * year: Datetime, year to use for generation
+            * month: Datetime, month to use for generation
+            * samples: Number of 10min-long samples to use
+
+            # Return
+            Float representing the reference level
+        """
+
+        bb = []
+        count = 0
+        while count < samples:
+            day = random.randint(1, 28)
+            hour = random.randint(0, 22)
+            minute = random.randint(0, 4) * 10
+            try:
+                pds_frame, broadband_frame = self.generate_psds(dt.datetime(year, month, day, hour, minute),
+                                                                dt.datetime(year, month, day, hour, minute + 10),
+                                                                overwrite_output=True, ref_lvl=False)
+            except:
+                continue
+            bb.extend(broadband_frame[0].tolist())
+            count += 1
+        ref = np.percentile(bb, 5)
+
+        return ref
