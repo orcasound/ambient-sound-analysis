@@ -31,9 +31,9 @@ def setup_logger():
 
         # Create a formatter and set the format
         formatter = logging.Formatter('%(asctime)s || Execution Time: %(execution_time)s - '
-                                      'Data Duration: %(str(duration))|| '
+                                      'Data Duration: %(duration)|| '
                                       'Start Time: %(start_time)s - End Time: %(end_time)s | '
-                                      'Parameters: delta_f: %(delta_f)s - bands: %(bands)s - delta_t: %(delta_t)s - '
+                                      'Parameters: delta_f: %(delta_f) - bands: %(bands) - delta_t: %(delta_t) - '
                                       'mode: %(mode)s',
                                       datefmt='%Y-%m-%d %H:%M:%S')
         fh.setFormatter(formatter)
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     print(execution_time)
 
     logger.info('', extra={'execution_time': execution_time,
-                           'duration': (end_time - start_time),
+                           'duration': str(end_time - start_time),
                            'start_time': start_time,
                            'end_time': end_time,
                            'delta_f': args.delta_f,
