@@ -31,7 +31,7 @@ def setup_logger():
 
         # Create a formatter and set the format
         formatter = logging.Formatter('%(asctime)s || Execution Time: %(execution_time)s - '
-                                      'Data Duration: %(str(end_time - start_time))|| '
+                                      'Data Duration: %(str(duration))|| '
                                       'Start Time: %(start_time)s - End Time: %(end_time)s | '
                                       'Parameters: delta_f: %(delta_f)s - bands: %(bands)s - delta_t: %(delta_t)s - '
                                       'mode: %(mode)s',
@@ -47,6 +47,10 @@ def setup_logger():
 if __name__ == '__main__':
     logger = setup_logger()
     args = parse_args()  # Parse arguments
+
+    print('#' * 10, 'Starting Cost Analysis with the following parameters', '#' * 10)
+    print(f'start_time: {args.start_time}, end_time: {args.end_time}, 'f'delta_f: {args.delta_f}, '
+          f'delta_t: {args.delta_t}, bands: {args.bands}, mode: {args.mode}')
 
     # Convert string dates to datetime objects
     try:
@@ -68,6 +72,7 @@ if __name__ == '__main__':
     print(execution_time)
 
     logger.info('', extra={'execution_time': execution_time,
+                           'duration': (end_time - start_time),
                            'start_time': start_time,
                            'end_time': end_time,
                            'delta_f': args.delta_f,
