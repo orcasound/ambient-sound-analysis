@@ -2,6 +2,7 @@ import datetime as dt
 import time
 import argparse
 import logging
+import pandas as pd
 
 from orcasound_noise.pipeline.pipeline import NoiseAnalysisPipeline
 from orcasound_noise.utils import Hydrophone
@@ -60,16 +61,21 @@ if __name__ == '__main__':
         start_time = dt.datetime.strptime(args.start_time, "%Y-%m-%d")
         end_time = dt.datetime.strptime(args.end_time, "%Y-%m-%d")
 
+    ts = time.time()
     pipeline = NoiseAnalysisPipeline(Hydrophone.ORCASOUND_LAB,
                                      pqt_folder='pqt',
                                      delta_f=args.delta_f,
                                      bands=args.bands,
                                      delta_t=args.delta_t,
                                      mode=args.mode)
-    ts = time.time()
     psd_path, broadband_path = pipeline.generate_parquet_file(start_time, end_time, upload_to_s3=False)
     execution_time = time.time() - ts
     print(execution_time)
+
+    df1 = pd.read_parquet(psd_path)
+    print(df1.shape)
+    df2 = pd.read_parquet(broadband_path)
+    print(df2.shape)
 
     logger.info('', extra={'execution_time': execution_time,
                            'duration': str(end_time - start_time),
@@ -79,3 +85,8 @@ if __name__ == '__main__':
                            'delta_t': args.delta_t,
                            'bands': args.bands,
                            'mode': args.mode})
+
+
+# 1hz narrowest, broadband (10hz-20khz),
+# 3rd octave, 12th octave bands,
+# 1s, 10, 30s, 60s, 5min, 10min, 30min, 1h
