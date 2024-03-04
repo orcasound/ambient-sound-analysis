@@ -32,7 +32,7 @@ def setup_logger():
 
         # Create a formatter and set the format
         formatter = logging.Formatter('%(asctime)s | Execution Time: %(execution_time)ss - '
-                                      'Data Duration: %(duration)s | '
+                                      'Data Duration: %(duration)s - Data Size: %(rows)s | '
                                       'Start Time: %(start_time)s - End Time: %(end_time)s | '
                                       'Parameters: delta_f: %(delta_f)s , bands: %(bands)s , delta_t: %(delta_t)s - '
                                       'mode: %(mode)s',
@@ -75,6 +75,7 @@ if __name__ == '__main__':
     df1 = pd.read_parquet(psd_path)
     print(df1.shape)
     df2 = pd.read_parquet(broadband_path)
+    print(df2.head())
     print(df2.shape)
 
     logger.info('', extra={'execution_time': execution_time,
@@ -84,7 +85,8 @@ if __name__ == '__main__':
                            'delta_f': args.delta_f,
                            'delta_t': args.delta_t,
                            'bands': args.bands,
-                           'mode': args.mode})
+                           'mode': args.mode,
+                           'rows': len(df2)})
 
 
 # 1hz narrowest, broadband (10hz-20khz),
