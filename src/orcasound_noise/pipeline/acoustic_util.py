@@ -8,6 +8,7 @@ import matplotlib.dates as mdates
 from skimage.restoration import denoise_wavelet
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 
 
 def apply_per_channel_energy_norm(spectrogram):
@@ -134,29 +135,26 @@ def wav_to_array(filepath,
                  t0=datetime.datetime.now(),
                  delta_t=1,
                  delta_f=10,
-                 transforms=[
-                     wavelet_denoising
-                 ],
-                 ref=np.max,
+                 transforms=[wavelet_denoising],
+                 ref=1,
                  bands=None
                  ):
     """
-    This function converts a wavfile to a dataframe of power spectral density, with the index as the timestamp from the start of the wav file and the columns as the frequency bin.  This function also calculates the broadband average noise level of the input wavefile before the dB conversion per time step after the FFT calculation.  
+    This function converts a wavfile to a dataframe of power spectral density, with the index as the timestamp from the start of the wav file and the columns as the frequency bin.  This function also calculates the broadband average noise level of the input wavefile before the dB conversion per time step after the FFT calculation.
 
-    df1: Spectrogram data.  Index = time, columns = frequency. 
-    df2: Broadband RMS level.  Index = time, column = average noise.  
+    df1: Spectrogram data.  Index = time, columns = frequency.
+    df2: Broadband RMS level.  Index = time, column = average noise.
 
     Args:
-        t0:
         filepath: file path to .wav
-        to: datetime.  starting time of the recording. 
+        t0: datetime.  starting time of the recording.
         delta_t: Int, number of seconds per sample
         delta_f: Int, number of hz per frequency band
         n_fft: int. number of points in the acquired time-domain signal.  delta F = sample rate/n_fft
-        transforms: List of functions to apply to DB-spectogram before reducing to bands. 
+        transforms: List of functions to apply to DB-spectogram before reducing to bands.
           Functions must take in single spectogram as argument and return same. Default is to apply PCEN and wavelet denoising.
-        ref: float.  reference level for the amplitude to dB conversion.  must be an absolute value, not dB. 
-        bands: int. default=None. If not None this value selects how many octave subdivisions the frequency spectrum should 
+        ref: float.  reference level for the amplitude to dB conversion.  must be an absolute value, not dB.
+        bands: int. default=None. If not None this value selects how many octave subdivisions the frequency spectrum should
           be divided into, where each frequency step is 1/Nth of an octave with N=bands. Based on the ISO R series.
           Accepts values 1, 3, 6, 12, or 24.
 
@@ -167,7 +165,7 @@ def wav_to_array(filepath,
     y, sr = librosa.load(filepath, sr=None)
 
     n_fft = int(sr / delta_f)
-    hop_length = int(delta_t * sr)
+    hop_length = int(n_fft / 2)
 
     D_highres = librosa.stft(y, hop_length=hop_length, n_fft=n_fft)
     spec = librosa.amplitude_to_db(np.abs(D_highres), ref=ref)
@@ -183,7 +181,7 @@ def wav_to_array(filepath,
     delta_f = sr / n_fft
     DT = D_highres.transpose()
     for i in range(len(DT)):
-        rms.append(np.sqrt(delta_f * np.sum(np.abs(DT[i, 1]))))
+        rms.append(delta_f * np.sum(np.abs(DT[i, :])))
     df = pd.DataFrame(spec.transpose(), columns=freqs, index=times)
     df = df.astype(float).round(2)
     df.columns = df.columns.map(str)
@@ -191,22 +189,83 @@ def wav_to_array(filepath,
     rms_df = pd.DataFrame(rms, index=times)
     rms_df = rms_df.astype(float).round(2)
     rms_df.columns = rms_df.columns.map(str)
+    rms_df = array_resampler_bands(df=rms_df, delta_t=delta_t)
 
+    # Note - Need to check if bands and broadband are correctly converted
     if bands is not None:
 
         oct_unscaled, fm = spec_to_bands(np.abs(DT), bands, delta_f, freqs=freqs, ref=ref)
         oct_df = pd.DataFrame(oct_unscaled, columns=fm, index=times).astype(float).round(2)
+        oct_df = array_resampler_bands(df=oct_df, delta_t=delta_t)
 
         return oct_df, rms_df
     else:
+        df = array_resampler(df=df, delta_t=delta_t)
         return df, rms_df
+
+
+def array_resampler(df, delta_t=1):
+    """
+    This function takes in the data frame of spectrogram data, converts it to amplitude, averages over time frame, and converts it back to db.
+
+    Args:
+        df: data frame of spectrogram data
+        delta_t: Int, number of seconds per sample
+
+    Returns:
+        resampled_df: data frame of spectrogram data.
+    """
+    cols = df.columns
+    ind = df.index
+    resampled_df = df.to_numpy()
+    resampled_df = librosa.db_to_amplitude(resampled_df)
+    resampled_df = pd.DataFrame(resampled_df, columns=cols)
+    resampled_df['ind'] = ind
+    resampled_df = resampled_df.set_index(pd.DatetimeIndex(resampled_df['ind']))
+
+    sample_length = str(delta_t) + 's'
+
+    resampled_df = resampled_df.resample(sample_length).mean()
+    resampledIndex = resampled_df.index
+
+    resampled_df = resampled_df.to_numpy()
+    resampled_df = librosa.amplitude_to_db(resampled_df, ref=1)
+
+    resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
+
+    return resampled_df
+
+
+def array_resampler_bands(df, delta_t=1):
+    """
+    This function takes in the data frame for bands or broadband, averages over time frame, and converts it to db.
+
+    Args:
+        df: data frame of spectrogram data
+        delta_t: Int, number of seconds per sample
+
+    Returns:
+        resampled_df: data frame of broadband data.
+    """
+    resampled_df = df
+    sample_length = str(delta_t) + 's'
+
+    resampled_df = resampled_df.resample(sample_length).mean()
+    resampledIndex = resampled_df.index
+
+    resampled_df = resampled_df.to_numpy()
+    resampled_df = librosa.amplitude_to_db(resampled_df, ref=1, top_db=200.0)
+
+    resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
+
+    return resampled_df
 
 
 def ancient_ambient(df):
     """
-    Ancient ambient noise level is defined as the 5th percentile noise level of a month's acoustic data.  
+    Ancient ambient noise level is defined as the 5th percentile noise level of a month's acoustic data.
 
-    Args: Array-like object containing a month of acoustic data.  
+    Args: Array-like object containing a month of acoustic data.
 
     Returns: 5th percentile noise level
     """
@@ -216,10 +275,10 @@ def ancient_ambient(df):
 
 def spec_plot(df, sr=48000, hop_length=256):
     """
-    This function converts a table of power spectral data, having the columns represent frequency bins and the rows represent time segments, to a spectrogram.  
+    This function converts a table of power spectral data, having the columns represent frequency bins and the rows represent time segments, to a spectrogram.
 
-    Args: 
-        df: Dataframe of power spectral data. 
+    Args:
+        df: Dataframe of power spectral data.
         sr: int. Sample rate of the audio signal.
         hop_length: int. Number of audio samples between adjacent STFT columns.  See librosa docs for more info.
 
@@ -242,8 +301,8 @@ def spec_plot(df, sr=48000, hop_length=256):
 def filt_gain(f, fm, b):
     """
     f: array of frequencies to apply gain to
-    fm: center frequency 
-    b: bandwidth designator. 1 for full octave, 3 for 1/3 octave, etc. 
+    fm: center frequency
+    b: bandwidth designator. 1 for full octave, 3 for 1/3 octave, etc.
     """
 
     length = len(f)
@@ -264,7 +323,7 @@ def band_power(psd, g, delta_f):
     https://www.ap.com/technical-library/deriving-fractional-octave-spectra-from-the-fft-with-apx/
 
     psd: original power spectral density
-    g: gains to apply 
+    g: gains to apply
     """
 
     exp = np.full(len(psd), 2.0)
@@ -406,10 +465,10 @@ def plot_noise(testdf, name, output_path=None, save=False):
 
 def dBFS_to_aa(df, aa):
     """
-    Converts PSD in dBFS to dB relative to ancient ambient. Both values must be in dBFS. 
+    Converts PSD in dBFS to dB relative to ancient ambient. Both values must be in dBFS.
 
     * df: dataframe to scale
-    * aa: ancient ambient.  
+    * aa: ancient ambient.
 
     """
 
@@ -418,18 +477,51 @@ def dBFS_to_aa(df, aa):
 
 def aa_to_dBFS(df, aa):
     """
-    Converts PSD scaled relative to ancient ambient to dBFS. Both values must be in dBFS. 
+    Converts PSD scaled relative to ancient ambient to dBFS. Both values must be in dBFS.
 
     * df: dataframe to scale
-    * aa: ancient ambient.  
+    * aa: ancient ambient.
 
     """
 
     return df - abs(aa)
 
 
-def abs_to_dB(df, ref=np.max, columns=None):
+def abs_to_dB(df, ref=1, columns=None):
+    """
+    Converts PSD in amplitude to decibels.
+
+    * df: dataframe in amplitude
+    * ref: reference level to adjust for
+    * columns: columns of the dataframe
+
+    """
+
     if columns == None:
         columns = list(df.columns)
     vals = librosa.amplitude_to_db(df, ref=ref)
     return pd.DataFrame(vals, index=list(df.index), columns=columns)
+
+
+def plot_spec(psd_df):
+    """
+    This function converts a table of power spectral data, having the columns represent frequency bins and the rows
+    represent time segments, to a spectrogram.
+
+    Args:
+        psd_df: Dataframe of power spectral data.
+
+    Returns: Spectral plot
+    """
+
+    fig = go.Figure(
+        data=go.Heatmap(x=psd_df.index, y=psd_df.columns, z=psd_df.values.transpose(), colorscale='Viridis',
+                        colorbar={"title": 'Magnitude'}))
+    fig.update_layout(
+        title="Hydrophone Power Spectral Density",
+        xaxis_title="Time",
+        yaxis_title="Frequency (Hz)",
+        legend_title="Magnitude"
+    )
+    fig.update_yaxes(type="log")
+    fig.show()

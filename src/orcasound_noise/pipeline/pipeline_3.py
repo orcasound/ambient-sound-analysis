@@ -4,45 +4,40 @@ import os
 import tempfile
 import time
 import logging
-import random
 
 # Third part imports
 import numpy as np
 import pandas as pd
-from multiprocessing import Pool
+import random
 
 # Local imports
 from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
 from .acoustic_util import wav_to_array
+from ..utils import Hydrophone
 from ..utils.file_connector import S3FileConnector
-
-from orcasound_noise.pipeline.acoustic_util import wav_to_array
-from orcasound_noise.utils import Hydrophone
-from orcasound_noise.utils.file_connector import S3FileConnector
 
 
 class NoiseAnalysisPipeline:
 
     def __init__(self, hydrophone: Hydrophone, delta_t, delta_f, bands=None, wav_folder=None, pqt_folder=None,
-                 no_auth=False, mode='safe'):
+                 no_auth=False):
         """
-        Pipeline object for generating rolled-up PDS parquet files. 
+        Pipeline object for generating rolled-up PDS parquet files.
 
         * hydrophone: Hydrophone enum that contains all conenction info to S3 buccket.
         * wav_folder: Local folder to store wav files in. Defaults to Temporary Directory
         * pqt_folder: Local folder to store pqt files in. Defaults to Temporary Directory
         * delta_t: The number of seconds per sample
         * delta_f: Int, The number of hertz per band.
-        * bands: int. default=None. If not None this value selects how many octave subdivisions the frequency spectrum should 
+        * bands: int. default=None. If not None this value selects how many octave subdivisions the frequency spectrum should
           be divided into, where each frequency step is 1/Nth of an octave with N=bands. Based on the ISO R series.
           Accepts values 1, 3, 6, 12, or 24.
         * no_auth: Bool, default False. Set to True to allow anonymous downloads. Uploading is not available when True.
         """
 
-        # Conenctions
+        # Connections
         self.hydrophone = hydrophone.value
         self.file_connector = S3FileConnector(hydrophone, no_sign=no_auth)
-        self.mode = mode
 
         # Local storage
         if wav_folder:
@@ -79,17 +74,6 @@ class NoiseAnalysisPipeline:
         except AttributeError:
             pass
 
-    @staticmethod
-    def process_wav_file(args):
-        wav_file_path, start_time, delta_t, delta_f, bands, kwargs = args
-        try:
-            dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=delta_t, delta_f=delta_f, transforms=[],
-                               bands=bands, **kwargs)
-            return dfs[0], dfs[1]
-        except FileNotFoundError as fnf_error:
-            logging.debug(f"{wav_file_path} clip failed to download: Error {fnf_error}")
-            return None, None
-
     def generate_psds(self, start: dt.datetime, end: dt.datetime, max_files=None, polling_interval=600,
                       overwrite_output=True, ref_lvl=True, **kwargs):
         """
@@ -100,6 +84,7 @@ class NoiseAnalysisPipeline:
         * max_files: Maximum number of wav files to generate. Use to help limit compute and egress whiel testing.
         * polling_interval: Int, size in secconds of intermediate wav files to generate.
         * overwrite_output: Automatically overwrite existing wav files. If False, will prompt before overwriting
+        * ref_lvl: Adjust broadband decibels based on reference level
         * kwargs: Other keyword args are passed to wav_to_array
 
         # Return
@@ -118,81 +103,37 @@ class NoiseAnalysisPipeline:
             overwrite_output
         )
 
-        if self.mode == 'fast':
-            tasks = []
+        psd_result = []
+        broadband_result = []
+        while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
             try:
-                wav_file_paths_and_clip_start_times = stream.get_all_clips()
-                print('#' * 5, "Finished Downloading .ts files", '#' * 5)
-
-                wav_file_paths = wav_file_paths_and_clip_start_times[0]
-                clip_start_time = wav_file_paths_and_clip_start_times[1]
-                assert len(wav_file_paths) == len(clip_start_time)
-
-                for i in range(len(wav_file_paths)):
-                    start_time = [int(x) for x in clip_start_time[i].split('_')]
-                    start_time = dt.datetime(*start_time)
-                    tasks.append((wav_file_paths[i], start_time, self.delta_t, self.delta_f, self.bands, kwargs))
-
+                wav_file_path, clip_start_time, _ = stream.get_next_clip()
+                if clip_start_time is None:
+                    continue
+                start_time = [int(x) for x in clip_start_time.split('_')]
+                start_time = dt.datetime(*start_time)
+                if wav_file_path is not None:
+                    dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=self.delta_t, delta_f=self.delta_f,
+                                       transforms=[], bands=self.bands, **kwargs)
+                    psd_result.append(dfs[0])
+                    broadband_result.append(dfs[1])
             except FileNotFoundError as fnf_error:
                 logging.debug("%s clip failed to download: Error %s", clip_start_time, fnf_error)
                 pass
-            # Use a multiprocessing Pool
-            print('#' * 5, "Using Multiprocessing for process_wav_file", '#' * 5)
-            with Pool() as pool:
-                results = pool.map(self.process_wav_file, tasks)
-                # Filter out None results and concatenate
-            psd_result = [r[0] for r in results if r[0] is not None]
-            broadband_result = [r[1] for r in results if r[1] is not None]
 
-            if len(psd_result) == 0:
-                logging.warning(f"No data found for {start} to {end}")
-                return None, None
+        if len(psd_result) == 0:
+            logging.warning(f"No data found for {start} to {end}")
+            return None, None
 
-            psd_result = pd.concat(psd_result).sort_index()
-            broadband_result = pd.concat(broadband_result).sort_index()
-            psd_result = psd_result[~psd_result.index.duplicated(keep='last')]
-            broadband_result = broadband_result[~broadband_result.index.duplicated(keep='last')]
+        psd_result = pd.concat(psd_result)
+        broadband_result = pd.concat(broadband_result)
+        psd_result = psd_result[~psd_result.index.duplicated(keep='last')]
+        broadband_result = broadband_result[~broadband_result.index.duplicated(keep='last')]
 
-            if ref_lvl:
-                broadband_result = broadband_result - self.ref
+        if ref_lvl:
+            broadband_result = broadband_result - self.ref
 
-            return psd_result, broadband_result
-
-        elif self.mode == 'safe':
-            psd_result = []
-            broadband_result = []
-            while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
-                try:
-                    wav_file_path, clip_start_time, _ = stream.get_next_clip()
-                    if clip_start_time is None:
-                        continue
-                    start_time = [int(x) for x in clip_start_time.split('_')]
-                    start_time = dt.datetime(*start_time)
-                    if wav_file_path is not None:
-                        dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=self.delta_t, delta_f=self.delta_f,
-                                           transforms=[], bands=self.bands, **kwargs)
-                        psd_result.append(dfs[0])
-                        broadband_result.append(dfs[1])
-                except FileNotFoundError as fnf_error:
-                    logging.debug("%s clip failed to download: Error %s", clip_start_time, fnf_error)
-                    pass
-
-            if len(psd_result) == 0:
-                logging.warning(f"No data found for {start} to {end}")
-                return None, None
-
-            psd_result = pd.concat(psd_result)
-            broadband_result = pd.concat(broadband_result)
-            psd_result = psd_result[~psd_result.index.duplicated(keep='last')]
-            broadband_result = broadband_result[~broadband_result.index.duplicated(keep='last')]
-
-            if ref_lvl:
-                broadband_result = broadband_result - self.ref
-
-            return psd_result, broadband_result
-
-        else:
-            raise ValueError("Specify either 'safe' or 'fast' mode")
+        return psd_result, broadband_result
 
     def generate_parquet_file(self, start: dt.datetime, end: dt.datetime, pqt_folder_override=None,
                               upload_to_s3=False):
@@ -261,11 +202,11 @@ class NoiseAnalysisPipeline:
     def process_ancient_ambient(self, ref_time: dt.datetime, dB=True):
         """
         Calculate the ancient ambient level for a given date and update the parquet file storing the
-        ancient ambient values.  
+        ancient ambient values.
 
         * ref_time: Datetime, date to use as the reference.
-        * dB: Bool.  True if the data is already in decibel form. Default True. 
-        
+        * dB: Bool.  True if the data is already in decibel form. Default True.
+
         """
 
         tmp_dir = tempfile.TemporaryDirectory()
@@ -319,11 +260,11 @@ class NoiseAnalysisPipeline:
 
     def get_ancient_ambient(self, date: dt.datetime, dB=True):
         """
-        
-        Return the ancient ambient level for a given date from the parquet file. 
+
+        Return the ancient ambient level for a given date from the parquet file.
 
         * date: Datetime, date of interest.
-        * dB: Bool.  True if the data is already in decibel form. Default True. 
+        * dB: Bool.  True if the data is already in decibel form. Default True.
 
         """
 
