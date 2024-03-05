@@ -8,8 +8,7 @@ import time
 
 if __name__ == '__main__':
     ts = time.time()
-    pipeline = NoiseAnalysisPipeline(Hydrophone.PORT_TOWNSEND, pqt_folder='/Users/vmehrotra/Desktop/ambient-sound-analysis/test_folder',
-                                     wav_folder='/Users/vmehrotra/Desktop/ambient-sound-analysis/test_folder', 
+    pipeline = NoiseAnalysisPipeline(Hydrophone.PORT_TOWNSEND, 
                                      delta_f=1, bands=None,
                                      delta_t=60, mode='safe')
 
