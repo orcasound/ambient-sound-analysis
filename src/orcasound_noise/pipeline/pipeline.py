@@ -110,7 +110,7 @@ class NoiseAnalysisPipeline:
         # logging.basicConfig(filename='temp_log.log', encoding='utf-8', level=logging.DEBUG)
         print("## CHEECK HERE")
         print(time.strftime('%Y-%m-%d %H:%M:%S'))
-        os.environ['TZ'] = 'America/Los_Angeles'  # set new timezone
+        os.environ['TZ'] = 'US/Pacific'  # set new timezone
         time.tzset()
         print(time.strftime('%Y-%m-%d %H:%M:%S'))
 
@@ -124,7 +124,7 @@ class NoiseAnalysisPipeline:
             self.wav_folder,
             overwrite_output
         )
-        print("Start and end tuple", start, end)
+        print("Start and end tuple", time.mktime(start.timetuple()), time.mktime(end.timetuple()))
         if self.mode == 'fast':
             tasks = []
             try:
