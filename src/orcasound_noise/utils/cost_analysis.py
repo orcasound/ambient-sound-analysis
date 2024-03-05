@@ -62,7 +62,7 @@ if __name__ == '__main__':
         end_time = dt.datetime.strptime(args.end_time, "%Y-%m-%d")
 
     ts = time.time()
-    pipeline = NoiseAnalysisPipeline(Hydrophone.ORCASOUND_LAB,
+    pipeline = NoiseAnalysisPipeline(Hydrophone.PORT_TOWNSEND,
                                      pqt_folder='pqt',
                                      delta_f=args.delta_f,
                                      bands=args.bands,
@@ -74,8 +74,6 @@ if __name__ == '__main__':
 
     df1 = pd.read_parquet(psd_path)
     print(df1.shape)
-    df2 = pd.read_parquet(broadband_path)
-    print(df2.shape)
 
     logger.info('', extra={'execution_time': execution_time,
                            'duration': str(end_time - start_time),
