@@ -162,6 +162,7 @@ class NoiseAnalysisPipeline:
             broadband_result = []
             counter = 0
             while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
+                print("Stream is stream over", stream.is_stream_over())
                 counter += 1
                 try:
                     wav_file_path, clip_start_time, _ = stream.get_next_clip()
