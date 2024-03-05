@@ -110,17 +110,19 @@ class NoiseAnalysisPipeline:
         """
         # logging.basicConfig(filename='temp_log.log', encoding='utf-8', level=logging.DEBUG)
 
+        start = timezone('US/Pacific').localize(start).timestamp()
+        end = timezone('US/Pacific').localize(end).timestamp()
         stream = DateRangeHLSStream(
             'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
             polling_interval,
+            start,
             # time.mktime(start.astimezone(timezone('UTC')).timetuple()),
-            timezone('US/Pacific').localize(start).timestamp(),
             # time.mktime(end.astimezone(timezone('US/Pacific')).timetuple()),
-            timezone('US/Pacific').localize(end).timestamp(),
+            end,
             self.wav_folder,
             overwrite_output
         )
-        print("Start and end tuple", time.mktime(start.timetuple()), time.mktime(end.timetuple()),)
+        print("Start and end tuple", start, end)
         if self.mode == 'fast':
             tasks = []
             try:
