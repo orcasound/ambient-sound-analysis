@@ -108,6 +108,9 @@ class NoiseAnalysisPipeline:
         """
         # logging.basicConfig(filename='temp_log.log', encoding='utf-8', level=logging.DEBUG)
 
+        os.environ['TZ'] = 'PST'
+        time.tzset()
+
         stream = DateRangeHLSStream(
             'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
             polling_interval,
