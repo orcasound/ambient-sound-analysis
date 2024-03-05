@@ -116,7 +116,7 @@ class NoiseAnalysisPipeline:
             self.wav_folder,
             overwrite_output
         )
-
+        print("Start and end tuple", time.mktime(start.timetuple()), time.mktime(end.timetuple()),)
         if self.mode == 'fast':
             tasks = []
             try:
@@ -160,6 +160,7 @@ class NoiseAnalysisPipeline:
         elif self.mode == 'safe':
             psd_result = []
             broadband_result = []
+            
             while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
                 try:
                     wav_file_path, clip_start_time, _ = stream.get_next_clip()
