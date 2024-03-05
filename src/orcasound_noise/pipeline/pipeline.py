@@ -160,8 +160,9 @@ class NoiseAnalysisPipeline:
         elif self.mode == 'safe':
             psd_result = []
             broadband_result = []
-            
+            counter = 0
             while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
+                counter += 1
                 try:
                     wav_file_path, clip_start_time, _ = stream.get_next_clip()
                     if clip_start_time is None:
@@ -177,6 +178,7 @@ class NoiseAnalysisPipeline:
                     logging.debug("%s clip failed to download: Error %s", clip_start_time, fnf_error)
                     pass
 
+            print("Ran ", counter, " iterations")
             if len(psd_result) == 0:
                 logging.warning(f"No data found for {start} to {end}")
                 return None, None
