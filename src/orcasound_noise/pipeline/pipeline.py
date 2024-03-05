@@ -4,7 +4,6 @@ import os
 import tempfile
 import time
 import logging
-from pytz import timezone
 
 
 # Third part imports
@@ -109,15 +108,20 @@ class NoiseAnalysisPipeline:
 
         """
         # logging.basicConfig(filename='temp_log.log', encoding='utf-8', level=logging.DEBUG)
+        print("## CHEECK HERE")
+        print(time.strftime('%Y-%m-%d %H:%M:%S'))
+        os.environ['TZ'] = 'America/Los_Angeles'  # set new timezone
+        time.tzset()
+        print(time.strftime('%Y-%m-%d %H:%M:%S'))
 
-        start = timezone('US/Pacific').localize(start).timestamp()
-        end = timezone('US/Pacific').localize(end).timestamp()
+        # start = timezone('US/Pacific').localize(start).timestamp()
+        # end = timezone('US/Pacific').localize(end).timestamp()
         stream = DateRangeHLSStream(
             'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
             polling_interval,
             start,
-            # time.mktime(start.astimezone(timezone('UTC')).timetuple()),
-            # time.mktime(end.astimezone(timezone('US/Pacific')).timetuple()),
+            time.mktime(start.timetuple()),
+            time.mktime(end.timetuple()),
             end,
             self.wav_folder,
             overwrite_output
