@@ -113,8 +113,10 @@ class NoiseAnalysisPipeline:
         stream = DateRangeHLSStream(
             'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
             polling_interval,
-            time.mktime(start.astimezone(timezone('UTC')).timetuple()),
-            time.mktime(end.astimezone(timezone('UTC')).timetuple()),
+            # time.mktime(start.astimezone(timezone('UTC')).timetuple()),
+            timezone('US/Pacific').localize(start).timestamp(),
+            # time.mktime(end.astimezone(timezone('US/Pacific')).timetuple()),
+            timezone('US/Pacific').localize(end).timestamp(),
             self.wav_folder,
             overwrite_output
         )
