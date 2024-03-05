@@ -119,10 +119,8 @@ class NoiseAnalysisPipeline:
         stream = DateRangeHLSStream(
             'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
             polling_interval,
-            start,
             time.mktime(start.timetuple()),
             time.mktime(end.timetuple()),
-            end,
             self.wav_folder,
             overwrite_output
         )
