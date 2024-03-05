@@ -4,7 +4,6 @@ import os
 import tempfile
 import time
 import logging
-import random
 
 # Third part imports
 import numpy as np
@@ -209,6 +208,8 @@ class NoiseAnalysisPipeline:
         """
 
         # Create datafame
+        print("#"*10, 'Start and End', '#'*10)
+        print(start, end)
         pds_frame, broadband_frame = self.generate_psds(start, end, overwrite_output=True)
 
         if pds_frame is None:
