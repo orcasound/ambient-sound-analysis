@@ -21,7 +21,7 @@ if __name__ == '__main__':
     print("Execution Time", time.time()-ts)
     # plot_spec(psd_df)
 
-    # plt.plot(bb_df)
-    # plt.show()
+    plt.plot(bb_df)
+    plt.show()
 
     ########## Shape:  (51, 24001)
