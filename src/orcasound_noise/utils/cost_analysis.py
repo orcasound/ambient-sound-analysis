@@ -17,6 +17,7 @@ def parse_args():
     parser.add_argument('--bands', nargs='*', default=None, help='List of bands')
     parser.add_argument('--delta_t', type=int, default=1, help='Time resolution')
     parser.add_argument('--mode', default='fast', choices=['fast', 'safe'], help='Mode of operation')
+    parser.add_argument('--port', default='ORCASOUND_LAB', type=str, help='Hydrophone Port Name similar to enum')
     return parser.parse_args()
 
 
@@ -32,10 +33,10 @@ def setup_logger():
 
         # Create a formatter and set the format
         formatter = logging.Formatter('%(asctime)s | Execution Time: %(execution_time)ss - '
-                                      'Data Duration: %(duration)s | '
+                                      'Data Duration: %(duration)s - Data Size: %(rows)s | '
                                       'Start Time: %(start_time)s - End Time: %(end_time)s | '
                                       'Parameters: delta_f: %(delta_f)s , bands: %(bands)s , delta_t: %(delta_t)s - '
-                                      'mode: %(mode)s',
+                                      'mode: %(mode)s | Port: %(port)s',
                                       datefmt='%Y-%m-%d %H:%M:%S')
         fh.setFormatter(formatter)
 
@@ -50,8 +51,9 @@ if __name__ == '__main__':
     args = parse_args()  # Parse arguments
 
     print('#' * 10, 'Starting Cost Analysis with the following parameters', '#' * 10)
-    print(f'start_time: {args.start_time}, end_time: {args.end_time}, 'f'delta_f: {args.delta_f}, '
-          f'delta_t: {args.delta_t}, bands: {args.bands}, mode: {args.mode}')
+    print(f'start_time: {args.start_time}, end_time: {args.end_time}')
+    print(f'delta_f: {args.delta_f}, delta_t: {args.delta_t}, bands: {args.bands}')
+    print(f'mode: {args.mode}, port: {args.port}')
 
     # Convert string dates to datetime objects
     try:
@@ -61,21 +63,32 @@ if __name__ == '__main__':
         start_time = dt.datetime.strptime(args.start_time, "%Y-%m-%d")
         end_time = dt.datetime.strptime(args.end_time, "%Y-%m-%d")
 
+    port_name = args.port
+    if port_name == 'PORT_TOWNSEND':
+        hydrophone = Hydrophone.PORT_TOWNSEND
+    elif port_name == 'BUSH_POINT':
+        hydrophone = Hydrophone.BUSH_POINT
+    elif port_name == 'SUNSET_BAY':
+        hydrophone = Hydrophone.SUNSET_BAY
+    elif port_name == 'SANDBOX':
+        hydrophone = Hydrophone.SANDBOX
+    else:
+        hydrophone = Hydrophone.ORCASOUND_LAB
+
     ts = time.time()
-    pipeline = NoiseAnalysisPipeline(Hydrophone.ORCASOUND_LAB,
+    pipeline = NoiseAnalysisPipeline(hydrophone=hydrophone,
                                      pqt_folder='pqt',
                                      delta_f=args.delta_f,
                                      bands=args.bands,
                                      delta_t=args.delta_t,
                                      mode=args.mode)
+
     psd_path, broadband_path = pipeline.generate_parquet_file(start_time, end_time, upload_to_s3=False)
     execution_time = time.time() - ts
-    print(execution_time)
+    print('Total Execution Time = ', execution_time)
 
     df1 = pd.read_parquet(psd_path)
     print(df1.shape)
-    df2 = pd.read_parquet(broadband_path)
-    print(df2.shape)
 
     logger.info('', extra={'execution_time': execution_time,
                            'duration': str(end_time - start_time),
@@ -84,7 +97,9 @@ if __name__ == '__main__':
                            'delta_f': args.delta_f,
                            'delta_t': args.delta_t,
                            'bands': args.bands,
-                           'mode': args.mode})
+                           'mode': args.mode,
+                           'rows': len(df1),
+                           'port': port_name})
 
 
 # 1hz narrowest, broadband (10hz-20khz),
