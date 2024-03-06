@@ -106,16 +106,10 @@ class NoiseAnalysisPipeline:
 
         Tuple of lists. First is psds and second is broadbands. Each list has one entry per wav_file generated
 
-        """
-        # logging.basicConfig(filename='temp_log.log', encoding='utf-8', level=logging.DEBUG)
-        print("## CHEECK HERE")
-        print(time.strftime('%Y-%m-%d %H:%M:%S'))
+        """        
         os.environ['TZ'] = 'US/Pacific'  # set new timezone
         time.tzset()
-        print(time.strftime('%Y-%m-%d %H:%M:%S'))
 
-        # start = timezone('US/Pacific').localize(start).timestamp()
-        # end = timezone('US/Pacific').localize(end).timestamp()
         stream = DateRangeHLSStream(
             'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
             polling_interval,
@@ -124,7 +118,6 @@ class NoiseAnalysisPipeline:
             self.wav_folder,
             overwrite_output
         )
-        print("Start and end tuple", time.mktime(start.timetuple()), time.mktime(end.timetuple()))
         if self.mode == 'fast':
             tasks = []
             try:
@@ -168,10 +161,7 @@ class NoiseAnalysisPipeline:
         elif self.mode == 'safe':
             psd_result = []
             broadband_result = []
-            counter = 0
             while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
-                print("Stream is stream over", stream.is_stream_over())
-                counter += 1
                 try:
                     wav_file_path, clip_start_time, _ = stream.get_next_clip()
                     if clip_start_time is None:
@@ -187,7 +177,6 @@ class NoiseAnalysisPipeline:
                     logging.debug("%s clip failed to download: Error %s", clip_start_time, fnf_error)
                     pass
 
-            print("Ran ", counter, " iterations")
             if len(psd_result) == 0:
                 logging.warning(f"No data found for {start} to {end}")
                 return None, None
@@ -220,8 +209,6 @@ class NoiseAnalysisPipeline:
         """
 
         # Create datafame
-        print("#"*10, 'Start and End', '#'*10)
-        print(start, end)
         pds_frame, broadband_frame = self.generate_psds(start, end, overwrite_output=True)
 
         if pds_frame is None:
