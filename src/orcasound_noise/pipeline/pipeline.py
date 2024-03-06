@@ -4,7 +4,7 @@ import os
 import tempfile
 import time
 import logging
-import random
+
 
 # Third part imports
 import numpy as np
@@ -106,8 +106,9 @@ class NoiseAnalysisPipeline:
 
         Tuple of lists. First is psds and second is broadbands. Each list has one entry per wav_file generated
 
-        """
-        # logging.basicConfig(filename='temp_log.log', encoding='utf-8', level=logging.DEBUG)
+        """        
+        os.environ['TZ'] = 'US/Pacific'  # set new timezone
+        time.tzset()
 
         stream = DateRangeHLSStream(
             'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
@@ -117,7 +118,6 @@ class NoiseAnalysisPipeline:
             self.wav_folder,
             overwrite_output
         )
-
         if self.mode == 'fast':
             tasks = []
             try:
