@@ -1,9 +1,10 @@
-orca-hls-utils @ git+https://github.com/vaibhavmehrotraml/orca-hls-utils.git
+orca-hls-utils@git+https://github.com/vaibhavmehrotraml/orca-hls-utils.git
 scipy==1.7.3
 matplotlib==3.5.3
 streamlit==1.17.0
 librosa==0.9.2
 scikit-image==0.19.3
+pandas==1.4.1
 boto3>=1.26.65
 python-dotenv
 plotly
