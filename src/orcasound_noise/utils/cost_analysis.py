@@ -77,7 +77,6 @@ if __name__ == '__main__':
 
     ts = time.time()
     pipeline = NoiseAnalysisPipeline(hydrophone=hydrophone,
-                                     pqt_folder='pqt',
                                      delta_f=args.delta_f,
                                      bands=args.bands,
                                      delta_t=args.delta_t,
@@ -105,3 +104,6 @@ if __name__ == '__main__':
 # 1hz narrowest, broadband (10hz-20khz),
 # 3rd octave, 12th octave bands,
 # 1s, 10, 30s, 60s, 5min, 10min, 30min, 1h
+# TODO: Add documentation for cost analysis
+# TODO: Python 3.9, pandas version
+# sudo apt install ffmpeg
