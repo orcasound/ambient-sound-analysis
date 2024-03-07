@@ -141,27 +141,27 @@ class NoiseAnalysisPipeline:
             with Pool() as pool:
                 results = pool.map(self.process_wav_file, tasks)
                 # Filter out None results and concatenate
-            psd_result = [r[0] for r in results if r[0] is not None]
-            broadband_result = [r[1] for r in results if r[1] is not None]
+            psd_results = [r[0] for r in results if r[0] is not None]
+            broadband_results = [r[1] for r in results if r[1] is not None]
 
-            if len(psd_result) == 0:
+            if len(psd_results) == 0:
                 logging.warning(f"No data found for {start} to {end}")
                 return None, None
 
-            psd_result = pd.concat(psd_result).sort_index()
-            broadband_result = pd.concat(broadband_result).sort_index()
-            psd_result = psd_result[~psd_result.index.duplicated(keep='last')]
-            broadband_result = broadband_result[~broadband_result.index.duplicated(keep='last')]
+            psd_results = pd.concat(psd_results).sort_index()
+            broadband_results = pd.concat(broadband_results).sort_index()
+            psd_results = psd_results[~psd_results.index.duplicated(keep='last')]
+            broadband_results = broadband_results[~broadband_results.index.duplicated(keep='last')]
 
             if ref_lvl:
-                broadband_result = broadband_result - self.ref
+                broadband_results = broadband_results - self.ref
 
-            return psd_result, broadband_result
+            return psd_results, broadband_results
 
         elif self.mode == 'safe':
-            psd_result = []
-            broadband_result = []
-            while (max_files is None or (len(psd_result) < max_files)) and not stream.is_stream_over():
+            psd_results = []
+            broadband_results = []
+            while (max_files is None or (len(psd_results) < max_files)) and not stream.is_stream_over():
                 try:
                     wav_file_path, clip_start_time, _ = stream.get_next_clip()
                     if clip_start_time is None:
@@ -171,18 +171,20 @@ class NoiseAnalysisPipeline:
                     if wav_file_path is not None:
                         dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=self.delta_t, delta_f=self.delta_f,
                                            transforms=[], bands=self.bands, **kwargs)
-                        psd_result.append(dfs[0])
-                        broadband_result.append(dfs[1])
+                        psd_results.append(dfs[0])
+                        broadband_results.append(dfs[1])
                 except FileNotFoundError as fnf_error:
                     logging.debug("%s clip failed to download: Error %s", clip_start_time, fnf_error)
                     pass
 
-            if len(psd_result) == 0:
+            if len(psd_results) == 0:
                 logging.warning(f"No data found for {start} to {end}")
                 return None, None
 
-            psd_result = pd.concat(psd_result)
-            broadband_result = pd.concat(broadband_result)
+            psd_result = pd.concat(psd_results)
+            del psd_results
+            broadband_result = pd.concat(broadband_results)
+            del broadband_results
             psd_result = psd_result[~psd_result.index.duplicated(keep='last')]
             broadband_result = broadband_result[~broadband_result.index.duplicated(keep='last')]
 
