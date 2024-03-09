@@ -119,7 +119,7 @@ Now that the data has been processed, it can be visualized into spectrograms and
 ```python
 import pandas as pd
 import matplotlib.pyplot as plt
-from orcasound_noise.pipeline.acoustic_util import plot_spec
+from orcasound_noise.pipeline.acoustic_util import plot_spec, plot_bb
 ```
 
 #### PSD/Broadband Data Frames
@@ -127,8 +127,8 @@ from orcasound_noise.pipeline.acoustic_util import plot_spec
 To read the parquet files generated in the previous section, we use the read_parquet() method from pandas.
 
 ```python
-bb_df = pd.read_parquet(broadband_path)
 psd_df = pd.read_parquet(psd_path)
+bb_df = pd.read_parquet(broadband_path)
 ```
 
 #### Spectrogram
@@ -146,14 +146,11 @@ This will create a spectrogram in plotly on your local machine.
 
 #### Broadband
 
-To visualize the broadband dataframe, we plot it with matplotlib:
+To visualize the broadband dataframe, we plot it with the plot_bb method:
 
 ```python
-plt.plot(bb_df)
-plt.show()
+plot_bb(bb_df)
 ```
-
-<img width="600" alt="readme_bb" src="https://github.com/orcasound/ambient-sound-analysis/assets/118499445/4e16c3a9-4150-465a-b80b-2dee0f1d3108">
 
 ### Running the Dashboard Locally
 
