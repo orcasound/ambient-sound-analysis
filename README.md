@@ -143,7 +143,6 @@ This will create a spectrogram in plotly on your local machine.
 
 <img width="600" alt="readme_spec" src="https://github.com/orcasound/ambient-sound-analysis/assets/118499445/e9edf520-a297-4f2f-97c8-b05ab6568b0d">
 
-
 #### Broadband
 
 To visualize the broadband dataframe, we plot it with the plot_bb method:
@@ -151,6 +150,8 @@ To visualize the broadband dataframe, we plot it with the plot_bb method:
 ```python
 plot_bb(bb_df)
 ```
+
+<img width="600" alt="bb_readme" src="https://github.com/orcasound/ambient-sound-analysis/assets/118499445/824df19a-49b6-4810-a692-71028b6e6a01">
 
 ### Running the Dashboard Locally
 
