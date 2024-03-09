@@ -141,7 +141,8 @@ plot_spec(psd_df)
 
 This will create a spectrogram in plotly on your local machine.
 
-<img height="200" src="/Users/zach/Desktop/Screen Shot 2024-03-09 at 11.07.48 AM.png" width="350"/>
+<img width="1399" alt="readme_spec" src="https://github.com/orcasound/ambient-sound-analysis/assets/118499445/e9edf520-a297-4f2f-97c8-b05ab6568b0d">
+
 
 #### Broadband
 
@@ -152,7 +153,7 @@ plt.plot(bb_df)
 plt.show()
 ```
 
-<img height="220" src="/Users/zach/Desktop/Screen Shot 2024-03-09 at 11.07.16 AM.png" width="350"/>
+<img width="538" alt="readme_bb" src="https://github.com/orcasound/ambient-sound-analysis/assets/118499445/4e16c3a9-4150-465a-b80b-2dee0f1d3108">
 
 ### Running the Dashboard Locally
 
