@@ -1,9 +1,8 @@
 import pandas as pd
 from orcasound_noise.pipeline.pipeline import NoiseAnalysisPipeline
 from orcasound_noise.utils import Hydrophone
-from orcasound_noise.pipeline.acoustic_util import plot_spec
+from orcasound_noise.pipeline.acoustic_util import plot_spec, plot_bb
 import datetime as dt
-import matplotlib.pyplot as plt
 import time
 
 if __name__ == '__main__':
@@ -15,12 +14,11 @@ if __name__ == '__main__':
     psd_path, broadband_path = pipeline.generate_parquet_file(dt.datetime(2023, 3, 22, 12),
                                                               dt.datetime(2023, 3, 22, 13), upload_to_s3=False)
 
-    bb_df = pd.read_parquet(broadband_path)
     psd_df = pd.read_parquet(psd_path)
+    bb_df = pd.read_parquet(broadband_path)
 
     print("Execution Time", time.time()-ts)
 
     plot_spec(psd_df)
 
-    plt.plot(bb_df)
-    plt.show()
+    plot_bb(bb_df)

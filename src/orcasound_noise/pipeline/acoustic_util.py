@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-
 def apply_per_channel_energy_norm(spectrogram):
     """Apply PCEN.
 
@@ -543,3 +542,19 @@ def plot_spec(psd_df):
     )
     fig.update_yaxes(type="log")
     fig.show()
+
+def plot_bb(bb_df):
+    """
+    This function plots the broadband levels in relative decibels.
+
+    Args:
+        bb_df: Dataframe of broadband levels.
+
+    Returns: Time series of broadband levels.
+    """
+
+    plt.plot(bb_df)
+    plt.title('Relative Broadband Levels')
+    plt.xlabel('Time')
+    plt.ylabel('Relative Decibels')
+    plt.show()
