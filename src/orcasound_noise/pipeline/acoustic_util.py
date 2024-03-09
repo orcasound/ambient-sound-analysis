@@ -162,13 +162,18 @@ def wav_to_array(filepath,
         Tuple of (df1, df2)
     """
 
+    # Load the .wav file
     y, sr = librosa.load(filepath, sr=None)
 
+    # Set FFT parameters
     n_fft = int(sr / delta_f)
     hop_length = int(n_fft / 2)
 
+    # Apply the STFT
     D_highres = librosa.stft(y, hop_length=hop_length, n_fft=n_fft)
+    # Convert from amplitude to decibels
     spec = librosa.amplitude_to_db(np.abs(D_highres), ref=ref)
+    # Save the frequencies and time for Dataframe construction
     freqs = librosa.core.fft_frequencies(sr=sr, n_fft=n_fft)
     secs = librosa.core.frames_to_time(np.arange(spec.shape[1]), sr=sr, n_fft=n_fft, hop_length=hop_length)
     times = [t0 + datetime.timedelta(seconds=x) for x in secs]
@@ -180,26 +185,33 @@ def wav_to_array(filepath,
     rms = []
     delta_f = sr / n_fft
     DT = D_highres.transpose()
+    # Sum over the frequencies for each time to calculate broadband
     for i in range(len(DT)):
         rms.append(delta_f * np.sum(np.abs(DT[i, :])))
+
+    # Create the PSD Dataframe
     df = pd.DataFrame(spec.transpose(), columns=freqs, index=times)
     df = df.astype(float).round(2)
     df.columns = df.columns.map(str)
 
+    # Create the broadband dataframe
     rms_df = pd.DataFrame(rms, index=times)
     rms_df = rms_df.astype(float).round(2)
     rms_df.columns = rms_df.columns.map(str)
+    # Average over desired time and convert to decibels for the broadband
     rms_df = array_resampler_bands(df=rms_df, delta_t=delta_t)
 
-    # Note - Need to check if bands and broadband are correctly converted
+    # Calculate bands if specified
     if bands is not None:
-
+        # Convert to bands
         oct_unscaled, fm = spec_to_bands(np.abs(DT), bands, delta_f, freqs=freqs, ref=ref)
         oct_df = pd.DataFrame(oct_unscaled, columns=fm, index=times).astype(float).round(2)
+        # Average over desired time and convert to decibels for bands
         oct_df = array_resampler_bands(df=oct_df, delta_t=delta_t)
-
         return oct_df, rms_df
+
     else:
+        # Convert PSD back to amplitude, average over time period, and convert back to decibels
         df = array_resampler(df=df, delta_t=delta_t)
         return df, rms_df
 
@@ -215,9 +227,11 @@ def array_resampler(df, delta_t=1):
     Returns:
         resampled_df: data frame of spectrogram data.
     """
+    # Save columns and index for later Dataframe construction
     cols = df.columns
     ind = df.index
     resampled_df = df.to_numpy()
+    # Convert back to amplitude for averaging
     resampled_df = librosa.db_to_amplitude(resampled_df)
     resampled_df = pd.DataFrame(resampled_df, columns=cols)
     resampled_df['ind'] = ind
@@ -225,12 +239,14 @@ def array_resampler(df, delta_t=1):
 
     sample_length = str(delta_t) + 's'
 
+    # Average over given time span
     resampled_df = resampled_df.resample(sample_length).mean()
     resampledIndex = resampled_df.index
 
     resampled_df = resampled_df.to_numpy()
+    # Convert back to decibels
     resampled_df = librosa.amplitude_to_db(resampled_df, ref=1)
-
+    # Reconstruct Dataframe
     resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
 
     return resampled_df
@@ -250,12 +266,14 @@ def array_resampler_bands(df, delta_t=1):
     resampled_df = df
     sample_length = str(delta_t) + 's'
 
+    # Average over given time span
     resampled_df = resampled_df.resample(sample_length).mean()
     resampledIndex = resampled_df.index
 
     resampled_df = resampled_df.to_numpy()
+    # Convert to decibels
     resampled_df = librosa.amplitude_to_db(resampled_df, ref=1, top_db=200.0)
-
+    # Reconstruct Dataframe
     resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
 
     return resampled_df
@@ -350,7 +368,7 @@ def octave_band(N, freqs):
     ISO R series
     """
 
-    # ISO R5 frequenceis
+    # ISO R5 frequencies
     Rfive = np.array([63, 125, 250, 500, 1000, 2000,
                       4000, 8000, 16000])
     g_Rfive = [filt_gain(freqs, x, 1) for x in Rfive]

@@ -4,6 +4,7 @@ import os
 import tempfile
 import time
 import logging
+import random
 
 
 # Third part imports
@@ -63,6 +64,7 @@ class NoiseAnalysisPipeline:
         self.delta_f = delta_f
         self.delta_t = delta_t
         self.bands = bands
+        # Calculate ref for hydrophone with generate_ref()
         self.ref = self.hydrophone.bb_ref
 
     def __del__(self):
@@ -106,10 +108,12 @@ class NoiseAnalysisPipeline:
 
         Tuple of lists. First is psds and second is broadbands. Each list has one entry per wav_file generated
 
-        """        
-        os.environ['TZ'] = 'US/Pacific'  # set new timezone
+        """
+        # Set timezone, pipeline won't work on devices not set to PST
+        os.environ['TZ'] = 'US/Pacific'
         time.tzset()
 
+        # Creating the stream object
         stream = DateRangeHLSStream(
             'https://s3-us-west-2.amazonaws.com/' + self.hydrophone.bucket + '/' + self.hydrophone.ref_folder,
             polling_interval,
@@ -118,6 +122,7 @@ class NoiseAnalysisPipeline:
             self.wav_folder,
             overwrite_output
         )
+        # Fast mode still in development, use safe mode for accurate results
         if self.mode == 'fast':
             tasks = []
             try:
@@ -163,14 +168,17 @@ class NoiseAnalysisPipeline:
             broadband_results = []
             while (max_files is None or (len(psd_results) < max_files)) and not stream.is_stream_over():
                 try:
+                    # Create .wav file with duration of polling_interval
                     wav_file_path, clip_start_time, _ = stream.get_next_clip()
                     if clip_start_time is None:
                         continue
                     start_time = [int(x) for x in clip_start_time.split('_')]
                     start_time = dt.datetime(*start_time)
                     if wav_file_path is not None:
+                        # Convert the .wav file into PSD and broadband dataframes
                         dfs = wav_to_array(wav_file_path, t0=start_time, delta_t=self.delta_t, delta_f=self.delta_f,
                                            transforms=[], bands=self.bands, **kwargs)
+                        # Add the PSD and broadband to list of dataframes
                         psd_results.append(dfs[0])
                         broadband_results.append(dfs[1])
                 except FileNotFoundError as fnf_error:
@@ -181,13 +189,16 @@ class NoiseAnalysisPipeline:
                 logging.warning(f"No data found for {start} to {end}")
                 return None, None
 
+            # Concatenating the list of PSDs and broadband to get one PSD and one broadband
             psd_result = pd.concat(psd_results)
             del psd_results
             broadband_result = pd.concat(broadband_results)
             del broadband_results
+            # Removing duplicates, occur sometimes at end of one dataframe and start of next
             psd_result = psd_result[~psd_result.index.duplicated(keep='last')]
             broadband_result = broadband_result[~broadband_result.index.duplicated(keep='last')]
 
+            # Subtracting reference level from broadband
             if ref_lvl:
                 broadband_result = broadband_result - self.ref
 
@@ -210,13 +221,13 @@ class NoiseAnalysisPipeline:
         Filepath of generated pqt file.
         """
 
-        # Create datafame
+        # Create PSD and broadband Dataframes
         pds_frame, broadband_frame = self.generate_psds(start, end, overwrite_output=True)
 
         if pds_frame is None:
             return None, None
 
-        # Save file
+        # Save file locally
         save_folder = pqt_folder_override or self.pqt_folder
         os.makedirs(save_folder, exist_ok=True)
         fileName = self.file_connector.create_filename(start, end, self.delta_t, self.delta_f,
@@ -229,7 +240,7 @@ class NoiseAnalysisPipeline:
         pds_frame.to_parquet(filePath)
         broadband_frame.to_parquet(broadbandFilePath)
 
-        # Upload
+        # Upload to S3 bucket
         if upload_to_s3:
             self.file_connector.upload_file(filePath, start, end, self.delta_t, self.delta_f,
                                             octave_bands=self.bands)
@@ -360,17 +371,21 @@ class NoiseAnalysisPipeline:
         bb = []
         count = 0
         while count < samples:
+            # Randomly select a day, hour, and 10min start within a given year and month
             day = random.randint(1, 28)
             hour = random.randint(0, 22)
             minute = random.randint(0, 4) * 10
             try:
+                # Calculating the broadband Dataframe for the sample
                 pds_frame, broadband_frame = self.generate_psds(dt.datetime(year, month, day, hour, minute),
                                                                 dt.datetime(year, month, day, hour, minute + 10),
                                                                 overwrite_output=True, ref_lvl=False)
             except:
                 continue
+            # Appending all broadband readings to the list
             bb.extend(broadband_frame[0].tolist())
             count += 1
+        # Setting reference level to 5th percentile of broadband list
         ref = np.percentile(bb, 5)
 
         return ref
