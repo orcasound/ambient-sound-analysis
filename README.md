@@ -223,10 +223,26 @@ pipeline.generate_parquet_file(dt.datetime(2020, 1, 1), dt.datetime(2020, 2, 1),
 - Mitch Haldeman - [GitHub](https://github.com/mitchhaldeman) [LinkedIn](https://www.linkedin.com/in/mitchhaldeman/)
 - Grant Savage - [GitHub](https://github.com/savageGrant) [LinkedIn](https://www.linkedin.com/in/grantsavage/)
 - Zach Price - [GitHub](https://github.com/zprice12) [LinkedIn](https://www.linkedin.com/in/zach-price-b65b98174/)
-- Timothy Tan - 
+- Timothy Tan - [GitHub](https://github.com/ttan06) [LinkedIn](https://www.linkedin.com/in/timothytan6/)
 - Vaibhav Mehrotra - 
 
 ## Acknowledgments
 
 - Thanks to Valentina Staneva, Val and Scott Veirs, Ben Hendricks, and everyone else connected to the Orcasounds org for their input and guidance.
 - Thanks to Megan Hazen and the rest of the UW MSDS faculty for their teachings and guidance.
+
+## References
+
+Erbe, Christine. Underwater Acoustics: Noise and the Effects on Marine Mammals. Jasco Applied Sciences, https://www.oceansinitiative.org/wp-content/uploads/2012/07/PocketBook-3rd-ed.pdf.
+
+Gabriele, C. M., Ponirakis, D., & Klinck, H. (2021). Underwater Sound Levels in Glacier Bay During Reduced Vessel Traffic Due to the COVID-19 Pandemic. Frontiers in Marine Science, 8. https://doi.org/10.3389/fmars.2021.674787
+
+Heise, Kathy, et al. “PROPOSED METRICS FOR THE MANAGEMENT OF UNDERWATER NOISE FOR SOUTHERN RESIDENT KILLER WHALES.” Coastal Ocean Report Series. (2017). 10.25317/CORI20172. 
+
+Sound Measurement. Discovery of Sound in the Sea. https://dosits.org/science/measurement/
+
+Veirs, V. Veirs, S. (2018, November 9). Orcasound lab: a soundscape analysis case study in killer whale habitat with implications for coastal ocean observatories. https://orcasound.net/talks/2018-asa-vveirs/
+
+Veirs, S. (2023, March 9). Salish Sea Bioacoustics: Marine Noise Pollution. https://www.emaze.com/@ALOWTWOLL/uwocean409-2023
+
+Wall, Carrie C., et al. “The next wave of passive acoustic data management: How Centralized Access Can Enhance Science.” Frontiers in Marine Science, vol. 8, 14 July 2021, https://doi.org/10.3389/fmars.2021.703682.
