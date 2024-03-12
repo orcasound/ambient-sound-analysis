@@ -224,7 +224,7 @@ pipeline.generate_parquet_file(dt.datetime(2020, 1, 1), dt.datetime(2020, 2, 1),
 - Grant Savage - [GitHub](https://github.com/savageGrant) [LinkedIn](https://www.linkedin.com/in/grantsavage/)
 - Zach Price - [GitHub](https://github.com/zprice12) [LinkedIn](https://www.linkedin.com/in/zach-price-b65b98174/)
 - Timothy Tan - [GitHub](https://github.com/ttan06) [LinkedIn](https://www.linkedin.com/in/timothytan6/)
-- Vaibhav Mehrotra - 
+- Vaibhav Mehrotra - [GitHub](https://github.com/vaibhavmehrotraml) [LinkedIn](https://www.linkedin.com/in/thevaibhavmehrotra/)
 
 ## Acknowledgments
 
