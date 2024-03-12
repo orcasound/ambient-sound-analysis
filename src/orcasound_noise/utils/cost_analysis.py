@@ -100,10 +100,3 @@ if __name__ == '__main__':
                            'rows': len(df1),
                            'port': port_name})
 
-
-# 1hz narrowest, broadband (10hz-20khz),
-# 3rd octave, 12th octave bands,
-# 1s, 10, 30s, 60s, 5min, 10min, 30min, 1h
-# TODO: Add documentation for cost analysis
-# TODO: Python 3.9, pandas version
-# sudo apt install ffmpeg
