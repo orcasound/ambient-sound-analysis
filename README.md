@@ -4,7 +4,7 @@ This repository holds code for a [UW MSDS capstone project](https://www.washingt
 
 This open source project has three main components:
 
-- The [pipeline](src/orcasound_noise/pipeline/README.md) that converts historical .ts files into compact [Power Spectral Density (PSD)](#psd) grids saved as [parquet files](https://parquet.apache.org/).
+- The [pipeline](src/orcasound_noise/pipeline/README.md) that converts historical `.ts` files into compact [Power Spectral Density (PSD)](#psd) grids saved as [parquet files](https://parquet.apache.org/).
 - The [accessor](src/orcasound_noise/analysis/README.md) that reads, filters and collates these files to produce PSD dataframes with specific time ranges
 - The [dashboard](pages/README.md) that displays key results using [Streamlit](https://streamlit.io/). The live dashboard is directly connected to the repo and visible [here](https://orcasound-ambient-sound-analysis-dashboard-boh8ls.streamlit.app)
 
@@ -26,7 +26,7 @@ git clone https://github.com/orcasound/ambient-sound-analysis.git
 
 #### Sample Virtual Environment
 
-If starting from a new virtual environment, ensure that ffmpeg is included in the creation, and that the python version is 3.9.
+If starting from a new virtual environment, ensure that ffmpeg is included in the creation, and that the Python version is 3.9.
 
 ```commandline
 conda create -n orca_env -c conda-forge ffmpeg python=3.9
@@ -36,7 +36,7 @@ conda activate orca_env
 
 ##### For Windows Users
 
-Sometimes ffmpeg can have path issues, and result in the following error when pulling the data: 
+Sometimes `ffmpeg` can have path issues, and result in the following error when pulling the data: 
 
 UnboundLocalError: local variable 'clip_start_time' referenced before assignment
 
@@ -48,6 +48,12 @@ To install the requirements for this repository, run:
 
 ```commandline
 python -m pip install .
+```
+
+You can also install directly from GitHub:
+
+```
+python -m pip install orcasound_noise@git+https://github.com/orcasound/ambient-sound-analysis
 ```
 
 ### Creating a new PSD
@@ -97,11 +103,11 @@ if __name__ == '__main__':
 
 #### Generating a PSD into a Parquet File
 
-Using the generate_parquet_file function, we can process the raw data from the S3 source and save the resulting PSDs in parquet files. 
+Using the `generate_parquet_file` function, we can process the raw data from the S3 source and save the resulting PSDs in parquet files. 
 This function requires a date range in the form of a datetime object, and can use down to the minute granularity (in UTC). 
 There are two parquet files generated, the PSD and the broadband view, and the function returns the paths to each.  
 
-The generate_parquet_file function calls upon generate_psds, which loads the .ts files from S3 and converts them to the desired PSDs. 
+The generate_parquet_file function calls upon `generate_psds`, which loads the `.ts` files from S3 and converts them to the desired PSDs. 
 
 ```python
 #Example: Using pipeline object specified above, we generate the parquet files for 12pm - 1pm UTC
@@ -124,7 +130,7 @@ from orcasound_noise.pipeline.acoustic_util import plot_spec, plot_bb
 
 #### PSD/Broadband Data Frames
 
-To read the parquet files generated in the previous section, we use the read_parquet() method from pandas.
+To read the parquet files generated in the previous section, we use the `read_parquet()` method from pandas.
 
 ```python
 psd_df = pd.read_parquet(psd_path)
@@ -133,7 +139,7 @@ bb_df = pd.read_parquet(broadband_path)
 
 #### Spectrogram
 
-With the pandas data frames obtained from the parquet files, we can now visualize the PSD in a spectrogram, using the plot_spec method.
+With the pandas data frames obtained from the parquet files, we can now visualize the PSD in a spectrogram, using the `plot_spec` method.
 
 ```python
 plot_spec(psd_df)
