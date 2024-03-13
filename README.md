@@ -118,7 +118,7 @@ psd_path, broadband_path = pipeline.generate_parquet_file(dt.datetime(2023, 3, 2
 
 ### Visualizing the Data
 
-Now that the data has been processed, it can be visualized into spectrograms and graphs.
+Now that the data has been processed, it can be visualized into spectrograms and time series plots.
 
 #### Imports
 
