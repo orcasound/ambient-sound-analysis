@@ -552,9 +552,10 @@ def plot_bb(bb_df):
 
     Returns: Time series of broadband levels.
     """
-
+    plt.xticks(rotation = 45)
     plt.plot(bb_df)
     plt.title('Relative Broadband Levels')
     plt.xlabel('Time')
     plt.ylabel('Relative Decibels')
+    plt.xticks(rotation = 45)
     plt.show()
