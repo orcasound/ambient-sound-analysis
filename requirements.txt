@@ -1,4 +1,4 @@
-orca-hls-utils@git+https://github.com/vaibhavmehrotraml/orca-hls-utils.git
+orca-hls-utils@git+https://github.com/orcasound/orca-hls-utils.git
 scipy==1.7.3
 matplotlib==3.5.3
 streamlit==1.17.0
