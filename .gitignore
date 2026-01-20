@@ -9,3 +9,6 @@ __pycache__/
 *.parquet
 .aws-config
 temp.py
+.DS_Store
+Icon?
+Icon[[:cntrl:]]
