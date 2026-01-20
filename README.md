@@ -29,9 +29,8 @@ git clone https://github.com/orcasound/ambient-sound-analysis.git
 If starting from a new virtual environment, ensure that ffmpeg is included in the creation, and that the Python version is 3.11.
 
 ```commandline
-cd ambient-sound-analysis-main
+cd ambient-sound-analysis
 conda env create -f environment.yml
-
 conda activate orca_env
 ```
 
