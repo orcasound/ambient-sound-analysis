@@ -188,14 +188,14 @@ def wav_to_array(filepath,
     for i in range(len(DT)):
         rms.append(delta_f * np.sum(np.abs(DT[i, :])))
 
-    # Create the PSD Dataframe with minimal copies: round in-place on a float32 array
-    spec_arr = np.asarray(spec.transpose(), dtype=np.float32)
+    # Create the PSD Dataframe with minimal copies: round in-place on a float64 array
+    spec_arr = np.asarray(spec.transpose(), dtype=np.float64)
     np.around(spec_arr, 2, out=spec_arr)
     df = pd.DataFrame(spec_arr, columns=freqs, index=times)
     df.columns = df.columns.map(str)
 
     # Create the broadband dataframe with the same strategy
-    rms_arr = np.asarray(rms, dtype=np.float32)
+    rms_arr = np.asarray(rms, dtype=np.float64)
     np.around(rms_arr, 2, out=rms_arr)
     rms_df = pd.DataFrame(rms_arr, index=times)
     rms_df.columns = rms_df.columns.map(str)
@@ -206,7 +206,7 @@ def wav_to_array(filepath,
     if bands is not None:
         # Convert to bands
         oct_unscaled, fm = spec_to_bands(np.abs(DT), bands, delta_f, freqs=freqs, ref=ref)
-        oct_arr = np.asarray(oct_unscaled, dtype=np.float32)
+        oct_arr = np.asarray(oct_unscaled, dtype=np.float64)
         np.around(oct_arr, 2, out=oct_arr)
         oct_df = pd.DataFrame(oct_arr, columns=fm, index=times)
         # Average over desired time and convert to decibels for bands
