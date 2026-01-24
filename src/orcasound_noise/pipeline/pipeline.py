@@ -13,7 +13,14 @@ import pandas as pd
 from multiprocessing import Pool
 
 # Local imports
-from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
+#
+# `orca_hls_utils` is an optional dependency when running purely local
+# processing/tests. Import it lazily so importing this module does not fail
+# in environments that haven't installed the git dependency yet.
+try:
+    from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
+except ModuleNotFoundError:  # pragma: no cover
+    DateRangeHLSStream = None
 from .acoustic_util import wav_to_array
 from ..utils.file_connector import S3FileConnector
 
@@ -109,6 +116,11 @@ class NoiseAnalysisPipeline:
         Tuple of lists. First is psds and second is broadbands. Each list has one entry per wav_file generated
 
         """
+        if DateRangeHLSStream is None:
+            raise ModuleNotFoundError(
+                "orca_hls_utils is required for HLS streaming (.ts -> .wav). "
+                "Install project dependencies (e.g. `pip install -r requirements.txt`)."
+            )
         # Set timezone, pipeline won't work on devices not set to PST
         os.environ['TZ'] = 'US/Pacific'
         time.tzset()

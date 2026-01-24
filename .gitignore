@@ -9,3 +9,5 @@ __pycache__/
 *.parquet
 .aws-config
 temp.py
+.DS_Store
+tests/test_data/*.wav
