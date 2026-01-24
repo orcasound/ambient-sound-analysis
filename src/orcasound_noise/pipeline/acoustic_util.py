@@ -1,26 +1,14 @@
 import os
 import datetime
 
-try:
-    import librosa
-    import librosa.display
-except ModuleNotFoundError:  # pragma: no cover
-    librosa = None
+import librosa
+import librosa.display
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from skimage.restoration import denoise_wavelet
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-
-
-def _require_librosa():
-    if librosa is None:
-        raise ModuleNotFoundError(
-            "librosa is required for acoustic processing. "
-            "Install project dependencies (e.g. `pip install -r requirements.txt`)."
-        )
-
 
 def apply_per_channel_energy_norm(spectrogram):
     """Apply PCEN.
@@ -43,8 +31,6 @@ def apply_per_channel_energy_norm(spectrogram):
     Returns:
         PCEN applied spectrogram data.
     """
-    _require_librosa()
-
     pcen_spectrogram = librosa.core.pcen(spectrogram)
     return pcen_spectrogram
 
@@ -125,7 +111,6 @@ def select_spec_case(plot_path, folder_path, pcen=False, wavelet=False):
     Returns:
         None.
     """
-    _require_librosa()
     onlyfiles = [
         f for f in os.listdir(folder_path)
         if os.path.isfile(os.path.join(folder_path, f))
@@ -174,8 +159,6 @@ def wav_to_array(filepath,
     Returns:
         Tuple of (df1, df2)
     """
-    _require_librosa()
-
     # Load the .wav file
     y, sr = librosa.load(filepath, sr=None)
 
@@ -241,7 +224,6 @@ def array_resampler(df, delta_t=1):
     Returns:
         resampled_df: data frame of spectrogram data.
     """
-    _require_librosa()
     # Save columns and index for later Dataframe construction
     cols = df.columns
     ind = df.index
@@ -278,7 +260,6 @@ def array_resampler_bands(df, delta_t=1):
     Returns:
         resampled_df: data frame of broadband data.
     """
-    _require_librosa()
     resampled_df = df
     sample_length = str(delta_t) + 's'
 
@@ -463,8 +444,6 @@ def spec_to_bands(psd, N, delta_f, freqs, ref):
     """
 
     """
-    _require_librosa()
-
     bands, gains = octave_band(N, freqs)
     octaves = np.empty((0, len(bands)), dtype=float)
     for row in psd:
