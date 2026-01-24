@@ -56,6 +56,28 @@ You can also install directly from GitHub:
 python -m pip install orcasound_noise@git+https://github.com/orcasound/ambient-sound-analysis
 ```
 
+### Testing and golden fixtures (`.pkl`)
+
+This repository includes regression tests that compare pipeline outputs against **golden fixtures** stored as
+`.pkl` files under `tests/golden/`.
+
+- **What is `.pkl`?**: A `.pkl` file is a Python *pickle* (serialized object) file. In this repo we use it to store
+  `pandas.DataFrame` objects (PSD and broadband outputs) with their indexes and dtypes preserved.
+- **Why use it?**:
+  - Fast to read/write in tests
+  - Preserves `DataFrame` structure (timestamps, frequency columns, dtypes) without extra schema handling
+  - Compact compared to many text formats
+- **Tradeoffs**:
+  - Python-specific and not human-readable
+  - Not ideal for diffs in code review
+  - **Security**: only unpickle files you trust (pickle can execute code during load)
+
+To regenerate the golden fixtures locally (requires `ffmpeg`):
+
+```commandline
+python -m tests.generate_test_data
+```
+
 ### Creating a new PSD
 
 #### Imports
