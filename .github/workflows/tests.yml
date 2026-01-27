@@ -23,11 +23,8 @@ jobs:
           use-mamba: true
           activate-environment: orca_env
           python-version: "3.9"
-      - name: Configure Conda
-        shell: bash -l {0}
-        run: |
-          conda config --set conda_remove_defaults true
-          conda config --set channel_priority strict
+          conda-remove-defaults: "true"
+          channel-priority: "strict"
 
       - name: Install dependencies
         shell: bash -l {0}
