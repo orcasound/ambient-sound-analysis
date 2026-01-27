@@ -31,7 +31,6 @@ def apply_per_channel_energy_norm(spectrogram):
     Returns:
         PCEN applied spectrogram data.
     """
-
     pcen_spectrogram = librosa.core.pcen(spectrogram)
     return pcen_spectrogram
 
@@ -160,7 +159,6 @@ def wav_to_array(filepath,
     Returns:
         Tuple of (df1, df2)
     """
-
     # Load the .wav file
     y, sr = librosa.load(filepath, sr=None)
 
@@ -450,7 +448,6 @@ def spec_to_bands(psd, N, delta_f, freqs, ref):
     """
 
     """
-
     bands, gains = octave_band(N, freqs)
     octaves = np.empty((0, len(bands)), dtype=float)
     for row in psd:

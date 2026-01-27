@@ -13,13 +13,17 @@ import pandas as pd
 from multiprocessing import Pool
 
 # Local imports
-from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
+#
+# `orca_hls_utils` is an optional dependency when running purely local
+# processing/tests. Import it lazily so importing this module does not fail
+# in environments that haven't installed the git dependency yet.
+try:
+    from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
+except ModuleNotFoundError:  # pragma: no cover
+    DateRangeHLSStream = None
 from .acoustic_util import wav_to_array
+from ..utils import Hydrophone
 from ..utils.file_connector import S3FileConnector
-
-from orcasound_noise.pipeline.acoustic_util import wav_to_array
-from orcasound_noise.utils import Hydrophone
-from orcasound_noise.utils.file_connector import S3FileConnector
 
 
 class NoiseAnalysisPipeline:
@@ -67,19 +71,40 @@ class NoiseAnalysisPipeline:
         # Calculate ref for hydrophone with generate_ref()
         self.ref = self.hydrophone.bb_ref
 
+    def cleanup(self):
+        """
+        Cleanup any internally-created temporary directories.
+
+        Note: If the caller provided `wav_folder`/`pqt_folder`, those directories
+        are *not* owned by this class and will not be deleted.
+        """
+        # TemporaryDirectory.cleanup() is idempotent; guard for None/AttributeError.
+        try:
+            if self.wav_folder_td is not None:
+                self.wav_folder_td.cleanup()
+                self.wav_folder_td = None
+        except AttributeError:
+            pass
+        try:
+            if self.pqt_folder_td is not None:
+                self.pqt_folder_td.cleanup()
+                self.pqt_folder_td = None
+        except AttributeError:
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.cleanup()
+        # Do not suppress exceptions.
+        return False
+
     def __del__(self):
         """"
         Remove Temp Dirs on delete
         """
-
-        try:
-            self.wav_folder_td.cleanup()
-        except AttributeError:
-            pass
-        try:
-            self.pqt_folder_td.cleanup()
-        except AttributeError:
-            pass
+        self.cleanup()
 
     @staticmethod
     def process_wav_file(args):
@@ -109,6 +134,11 @@ class NoiseAnalysisPipeline:
         Tuple of lists. First is psds and second is broadbands. Each list has one entry per wav_file generated
 
         """
+        if DateRangeHLSStream is None:
+            raise ModuleNotFoundError(
+                "orca_hls_utils is required for HLS streaming (.ts -> .wav). "
+                "Install project dependencies (e.g. `pip install -r requirements.txt`)."
+            )
         # Set timezone, pipeline won't work on devices not set to PST
         os.environ['TZ'] = 'US/Pacific'
         time.tzset()
