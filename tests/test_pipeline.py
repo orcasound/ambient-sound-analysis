@@ -112,7 +112,13 @@ def test_convert_ts_to_wav_then_process(sample_ts_path, tmp_path):
 
 
 @pytest.mark.parametrize("stem", ["live000", "live001", "live002"])
-@pytest.mark.parametrize("config_name,delta_t,delta_f,bands", [("60s_100hz", 60, 100, None)])
+@pytest.mark.parametrize(
+    "config_name,delta_t,delta_f,bands",
+    [
+        ("60s_100hz", 60, 100, None),
+        ("60s_3oct", 60, 100, 3),
+    ],
+)
 def test_ts_to_psd_matches_golden(stem, config_name, delta_t, delta_f, bands, test_files_dir, golden_dir, tmp_path):
     """Convert multiple local .ts files and compare PSD/broadband against golden fixtures."""
     ts_path = os.path.join(test_files_dir, f"{stem}.ts")
