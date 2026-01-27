@@ -74,19 +74,40 @@ class NoiseAnalysisPipeline:
         # Calculate ref for hydrophone with generate_ref()
         self.ref = self.hydrophone.bb_ref
 
+    def cleanup(self):
+        """
+        Cleanup any internally-created temporary directories.
+
+        Note: If the caller provided `wav_folder`/`pqt_folder`, those directories
+        are *not* owned by this class and will not be deleted.
+        """
+        # TemporaryDirectory.cleanup() is idempotent; guard for None/AttributeError.
+        try:
+            if self.wav_folder_td is not None:
+                self.wav_folder_td.cleanup()
+                self.wav_folder_td = None
+        except AttributeError:
+            pass
+        try:
+            if self.pqt_folder_td is not None:
+                self.pqt_folder_td.cleanup()
+                self.pqt_folder_td = None
+        except AttributeError:
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.cleanup()
+        # Do not suppress exceptions.
+        return False
+
     def __del__(self):
         """"
         Remove Temp Dirs on delete
         """
-
-        try:
-            self.wav_folder_td.cleanup()
-        except AttributeError:
-            pass
-        try:
-            self.pqt_folder_td.cleanup()
-        except AttributeError:
-            pass
+        self.cleanup()
 
     @staticmethod
     def process_wav_file(args):

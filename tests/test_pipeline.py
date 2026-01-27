@@ -6,7 +6,7 @@ import pytest
 import pandas as pd
 from unittest.mock import MagicMock, patch
 import librosa  # noqa: F401  # required dependency; fail fast if missing
-from botocore import UNSIGNED as BOTOCRE_UNSIGNED
+from botocore import UNSIGNED as BOTOCORE_UNSIGNED
 
 from orcasound_noise.pipeline.pipeline import NoiseAnalysisPipeline
 from orcasound_noise.utils import Hydrophone
@@ -54,7 +54,7 @@ def test_pipeline_init():
     assert pipeline.delta_f == 100
     # UNSIGNED config check varies by boto3/botocore version.
     sig = pipeline.file_connector.client.meta.config.signature_version
-    assert sig in ("s3v4", "unsigned", None) or sig == BOTOCRE_UNSIGNED
+    assert sig in ("s3v4", "unsigned", None) or sig == BOTOCORE_UNSIGNED
 
     # Check that temp folders are created
     assert os.path.exists(pipeline.wav_folder)
@@ -204,7 +204,7 @@ def test_generate_psds_snapshot(
 
 
 def test_pipeline_cleanup():
-    """Verify that temp directories are cleaned up on deletion."""
+    """Verify that temp directories are cleaned up deterministically."""
     pipeline = NoiseAnalysisPipeline(
         Hydrophone.ORCASOUND_LAB, delta_t=60, delta_f=100
     )
@@ -213,10 +213,8 @@ def test_pipeline_cleanup():
 
     assert os.path.exists(wav_path)
 
-    # Trigger deletion
-    del pipeline
+    # Explicit cleanup (avoid relying on GC timing / __del__)
+    pipeline.cleanup()
 
-    # Check if they still exist (this can be flaky depending on GC, but let's try)
-    # The pipeline class uses tempfile.TemporaryDirectory which cleans up on __del__
     assert not os.path.exists(wav_path)
     assert not os.path.exists(pqt_path)
