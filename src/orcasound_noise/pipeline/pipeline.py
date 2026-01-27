@@ -22,11 +22,8 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     DateRangeHLSStream = None
 from .acoustic_util import wav_to_array
+from ..utils import Hydrophone
 from ..utils.file_connector import S3FileConnector
-
-from orcasound_noise.pipeline.acoustic_util import wav_to_array
-from orcasound_noise.utils import Hydrophone
-from orcasound_noise.utils.file_connector import S3FileConnector
 
 
 class NoiseAnalysisPipeline:
