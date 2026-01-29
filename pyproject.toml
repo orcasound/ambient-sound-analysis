@@ -14,7 +14,7 @@ authors = [
   { name="Mitch Haldeman"},
   { name="Grant Savage"}
 ]
-description = "Tools for generating, accessing and analyzing hisorical noise levels in Orcasound hydrophone network"
+description = "Tools for generating, accessing and analyzing historical noise levels in Orcasound hydrophone network"
 requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
