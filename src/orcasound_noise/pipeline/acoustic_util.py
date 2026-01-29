@@ -200,7 +200,7 @@ def wav_to_array(filepath,
     rms_df.columns = rms_df.columns.map(str)
     # Average over desired time and convert to decibels for the broadband
     rms_df = array_resampler_bands(df=rms_df, delta_t=delta_t)
-    
+
     # Calculate bands if specified
     if bands is not None:
         # Convert to bands
@@ -216,7 +216,7 @@ def wav_to_array(filepath,
     else:
         # Convert PSD back to amplitude, average over time period, and convert back to decibels
         df = array_resampler(df=df, delta_t=delta_t)
-        
+
         return df, rms_df
 
 
