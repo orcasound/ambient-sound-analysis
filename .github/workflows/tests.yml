@@ -23,7 +23,7 @@ jobs:
           use-mamba: true
           environment-file: environment.yml
           activate-environment: orca_env
-          python-version: "3.11" 
+          python-version: "3.11"
           conda-remove-defaults: "true"
           channel-priority: "strict"
 
