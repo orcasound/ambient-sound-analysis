@@ -241,7 +241,6 @@ def array_resampler(df, delta_t=1):
     resampled_df['ind'] = ind
     resampled_df = resampled_df.set_index(pd.DatetimeIndex(resampled_df['ind']))
     resampled_df = resampled_df.drop(columns=['ind']) ## 2026-01-28 fix as pandas doesn't automatically drop the old index column in newer versions
-    
     sample_length = str(delta_t) + 's'
 
     # Average over given time span
