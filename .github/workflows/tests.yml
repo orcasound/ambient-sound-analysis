@@ -1,0 +1,33 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ffmpeg (for .ts -> .wav tests)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Set up Conda (mamba)
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-variant: Miniforge3
+          miniforge-version: latest
+          use-mamba: true
+          environment-file: environment.yml
+          activate-environment: orca_env
+          python-version: "3.11" 
+          conda-remove-defaults: "true"
+          channel-priority: "strict"
+
+      - name: Run tests
+        shell: bash -l {0}
+        run: pytest -q
+

@@ -15,7 +15,7 @@ authors = [
   { name="Grant Savage"}
 ]
 description = "Tools for generating, accessing and analyzing hisorical noise levels in Orcasound hydrophone network"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
