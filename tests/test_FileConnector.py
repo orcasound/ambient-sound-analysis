@@ -1,6 +1,6 @@
 import datetime as dt
 
-from src.file_connector import S3FileConnector
+from orcasound_noise.utils.file_connector import S3FileConnector
 
 def test_create_filename():
     filename = S3FileConnector.create_filename(

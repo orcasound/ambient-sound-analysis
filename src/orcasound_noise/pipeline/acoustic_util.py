@@ -31,7 +31,6 @@ def apply_per_channel_energy_norm(spectrogram):
     Returns:
         PCEN applied spectrogram data.
     """
-
     pcen_spectrogram = librosa.core.pcen(spectrogram)
     return pcen_spectrogram
 
@@ -160,7 +159,6 @@ def wav_to_array(filepath,
     Returns:
         Tuple of (df1, df2)
     """
-
     # Load the .wav file
     y, sr = librosa.load(filepath, sr=None)
 
@@ -188,14 +186,16 @@ def wav_to_array(filepath,
     for i in range(len(DT)):
         rms.append(delta_f * np.sum(np.abs(DT[i, :])))
 
-    # Create the PSD Dataframe
-    df = pd.DataFrame(spec.transpose(), columns=freqs, index=times)
-    df = df.astype(float).round(2)
+    # Create the PSD Dataframe with minimal copies: round in-place on a float64 array
+    spec_arr = np.asarray(spec.transpose(), dtype=np.float64)
+    np.around(spec_arr, 2, out=spec_arr)
+    df = pd.DataFrame(spec_arr, columns=freqs, index=times)
     df.columns = df.columns.map(str)
 
-    # Create the broadband dataframe
-    rms_df = pd.DataFrame(rms, index=times)
-    rms_df = rms_df.astype(float).round(2)
+    # Create the broadband dataframe with the same strategy
+    rms_arr = np.asarray(rms, dtype=np.float64)
+    np.around(rms_arr, 2, out=rms_arr)
+    rms_df = pd.DataFrame(rms_arr, index=times)
     rms_df.columns = rms_df.columns.map(str)
     # Average over desired time and convert to decibels for the broadband
     rms_df = array_resampler_bands(df=rms_df, delta_t=delta_t)
@@ -204,7 +204,9 @@ def wav_to_array(filepath,
     if bands is not None:
         # Convert to bands
         oct_unscaled, fm = spec_to_bands(np.abs(DT), bands, delta_f, freqs=freqs, ref=ref)
-        oct_df = pd.DataFrame(oct_unscaled, columns=fm, index=times).astype(float).round(2)
+        oct_arr = np.asarray(oct_unscaled, dtype=np.float64)
+        np.around(oct_arr, 2, out=oct_arr)
+        oct_df = pd.DataFrame(oct_arr, columns=fm, index=times)
         # Average over desired time and convert to decibels for bands
         oct_df = array_resampler_bands(df=oct_df, delta_t=delta_t)
         return oct_df, rms_df
@@ -446,7 +448,6 @@ def spec_to_bands(psd, N, delta_f, freqs, ref):
     """
 
     """
-
     bands, gains = octave_band(N, freqs)
     octaves = np.empty((0, len(bands)), dtype=float)
     for row in psd:
