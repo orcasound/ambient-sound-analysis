@@ -27,7 +27,7 @@ For a conda workflow (example):
 
 ```bash
 conda env create -f environment.yml   
-python activate orca_env
+conda activate orca_env
 python -m pytest -q
 ```
 
