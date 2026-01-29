@@ -230,7 +230,7 @@ def array_resampler(df, delta_t=1):
     Returns:
         resampled_df: data frame of spectrogram data.
     """
-     # Save columns and index for later Dataframe construction
+    # Save columns and index for later Dataframe construction
     cols = df.columns
     ind = df.index
     resampled_df = df.to_numpy()
