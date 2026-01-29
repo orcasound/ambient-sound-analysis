@@ -4,11 +4,6 @@ import sys
 import subprocess
 import tempfile
 
-# Allow running this script without installing the package.
-_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.dirname(_THIS_DIR)
-sys.path.insert(0, os.path.join(_REPO_ROOT, "src"))
-
 try:
     from orcasound_noise.pipeline.pipeline import NoiseAnalysisPipeline
 except ModuleNotFoundError as e:

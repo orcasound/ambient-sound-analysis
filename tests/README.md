@@ -26,9 +26,8 @@ python -m pytest -q tests/test_pipeline.py
 For a conda workflow (example):
 
 ```bash
-conda activate orca_env
-python -m pip install -r requirements.txt
-python -m pip install pytest pytest-asyncio
+conda env create -f environment.yml   
+python activate orca_env
 python -m pytest -q
 ```
 
