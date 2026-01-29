@@ -186,7 +186,6 @@ def wav_to_array(filepath,
     for i in range(len(DT)):
         rms.append(delta_f * np.sum(np.abs(DT[i, :])))
 
-    
     # Create the PSD Dataframe with minimal copies: round in-place on a float64 array
     spec_arr = np.asarray(spec.transpose(), dtype=np.float64)
     np.around(spec_arr, 2, out=spec_arr)
