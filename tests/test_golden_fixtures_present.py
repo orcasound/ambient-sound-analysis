@@ -8,7 +8,7 @@ def test_golden_fixtures_are_present():
     Require committed golden fixtures to be present.
 
     This is a fast, dependency-light check that fails with a clear message if
-    `tests/golden/*.pkl` fixtures were deleted or not included in the checkout.
+    `tests/golden/*.csv` fixtures were deleted or not included in the checkout.
     """
     this_dir = os.path.dirname(__file__)
     golden_dir = os.path.join(this_dir, "golden")
@@ -21,7 +21,7 @@ def test_golden_fixtures_are_present():
     for stem in stems:
         for config_name in config_names:
             for kind in kinds:
-                path = os.path.join(golden_dir, f"{stem}__{config_name}__{kind}.pkl")
+                path = os.path.join(golden_dir, f"{stem}__{config_name}__{kind}.csv")
                 if not os.path.exists(path):
                     missing.append(os.path.relpath(path))
 
