@@ -30,8 +30,8 @@ def _normalize_df(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _golden_paths(golden_dir: str, stem: str, config_name: str):
-    psd_path = os.path.join(golden_dir, f"{stem}__{config_name}__psd.pkl")
-    bb_path = os.path.join(golden_dir, f"{stem}__{config_name}__bb.pkl")
+    psd_path = os.path.join(golden_dir, f"{stem}__{config_name}__psd.csv")
+    bb_path = os.path.join(golden_dir, f"{stem}__{config_name}__bb.csv")
     return psd_path, bb_path
 
 
@@ -161,12 +161,18 @@ def test_ts_to_psd_matches_golden(stem, config_name, delta_t, delta_f, bands, te
     psd_df = _normalize_df(psd_df)
     bb_df = _normalize_df(bb_df)
 
-    psd_golden = _normalize_df(pd.read_pickle(psd_golden_path))
-    bb_golden = _normalize_df(pd.read_pickle(bb_golden_path))
+    psd_golden = _normalize_df(pd.read_csv(psd_golden_path, index_col=0, parse_dates=True))
+    bb_golden = _normalize_df(pd.read_csv(bb_golden_path, index_col=0, parse_dates=True))
+
+    # Verify freq metadata on computed DataFrames (can't round-trip through CSV)
+    expected_freq = pd.tseries.offsets.Second(delta_t)
+    assert psd_df.index.freq == expected_freq, f"psd_df freq mismatch: {psd_df.index.freq} != {expected_freq}"
+    assert bb_df.index.freq == expected_freq, f"bb_df freq mismatch: {bb_df.index.freq} != {expected_freq}"
 
     # ffmpeg conversion can introduce small numeric drift; allow tolerance.
-    pd.testing.assert_frame_equal(psd_df, psd_golden, check_exact=False, atol=0.5, rtol=0)
-    pd.testing.assert_frame_equal(bb_df, bb_golden, check_exact=False, atol=0.5, rtol=0)
+    # check_freq=False because CSV format cannot preserve DatetimeIndex freq metadata.
+    pd.testing.assert_frame_equal(psd_df, psd_golden, check_exact=False, atol=0.5, rtol=0, check_freq=False)
+    pd.testing.assert_frame_equal(bb_df, bb_golden, check_exact=False, atol=0.5, rtol=0, check_freq=False)
 
 
 @patch("orcasound_noise.pipeline.pipeline.DateRangeHLSStream")
