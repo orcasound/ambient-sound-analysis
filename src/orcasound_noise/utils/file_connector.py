@@ -1,11 +1,13 @@
 import datetime as dt
 import logging
+import io
+import os
+import subprocess
 
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from dotenv import load_dotenv
 
 from .hydrophone import Hydrophone
 
@@ -13,10 +15,24 @@ class S3FileConnector:
 
     DT_FORMAT = "%Y%m%dT%H%M%S"
 
-    def __init__(self, hydrophone: Hydrophone, no_sign=False):
+    def __init__(self, hydrophone: Hydrophone, no_sign=False, env_file: str = None):
         """
         S3File Connector maintains a connection to an AWS s3 bucket.
+        
+        Args:
+            hydrophone: Hydrophone enum value
+            no_sign: If True, use unsigned requests. If False, use AWS credentials from environment
+            env_file: Optional path to .env file for local development. If provided, environment 
+                     variables will be loaded from this file. Not recommended for production.
         """
+        # Load environment variables from file if provided (for local development)
+        if env_file:
+            try:
+                from dotenv import load_dotenv
+                load_dotenv(env_file)
+            except ImportError:
+                logging.warning(f"dotenv not installed. Unable to load {env_file}. "
+                                "Relying on OS environment variables.")
         self.bucket = hydrophone.value.bucket
         self.ref_folder = hydrophone.value.ref_folder
         self.save_bucket = hydrophone.value.save_bucket
@@ -27,7 +43,8 @@ class S3FileConnector:
             self.source_resource = boto3.resource('s3', config=Config(signature_version=UNSIGNED)).Bucket(self.bucket)
             self.archive_resource = boto3.resource('s3', config=Config(signature_version=UNSIGNED)).Bucket(self.save_bucket)
         else:
-            load_dotenv('.aws-config')
+            # boto3 automatically looks for credentials in environment variables
+            # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, or AWS_SESSION_TOKEN
             self.client = boto3.client('s3')
             self.source_resource = boto3.resource('s3').Bucket(self.bucket)
             self.archive_resource = boto3.resource('s3').Bucket(self.save_bucket)
@@ -112,6 +129,24 @@ class S3FileConnector:
         finally:
             if opened_file:
                 file.close()
+
+    def upload_partitioned_folder(self, folder_path: str):
+        """
+        Upload a partitioned parquet folder to the S3 archive
+
+        Uses AWS CLI to perform the upload to handle partitioned folders and upload only new files.
+
+        * folder_path: Path to the local folder containing partitioned parquet files, folder path needs to include S3 key prefix
+        """
+        if self.save_folder not in folder_path:
+            raise ValueError(f"folder_path must include '{self.save_folder}' to match S3 key prefix.")
+        
+        # Use AWS CLI to sync folder to S3
+        subprocess.run([
+            "aws", "s3", "sync",
+            folder_path, f"s3://{self.save_bucket}/{self.save_folder}/",
+            "--no-overwrite"
+        ], check=True)
 
     def get_files(self, start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands=None, is_broadband=False):
         """
