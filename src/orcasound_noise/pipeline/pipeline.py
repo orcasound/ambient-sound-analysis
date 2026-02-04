@@ -277,7 +277,7 @@ class NoiseAnalysisPipeline:
             psd_frame['type'] = 'psd'
 
             psd_frame.to_parquet(
-                save_folder / s3_save_folder,
+                save_folder + '/' + s3_save_folder,
                 partition_cols=['year', 'month', 'day', 'hydrophone', 'type'],
                 engine='pyarrow',
                 index=True,
@@ -290,14 +290,14 @@ class NoiseAnalysisPipeline:
             broadband_frame['type'] = 'broadband'
 
             broadband_frame.to_parquet(
-                save_folder / s3_save_folder,
+                save_folder + '/' + s3_save_folder,
                 partition_cols=['year', 'month', 'day', 'hydrophone', 'type'],
                 engine='pyarrow',
                 index=True,
                 )
             
             if upload_to_s3:
-                self.file_connector.upload_partitioned_folder(save_folder / s3_save_folder)
+                self.file_connector.upload_partitioned_folder(save_folder + '/' + s3_save_folder)
 
             return os.path.join(save_folder, s3_save_folder)
         
