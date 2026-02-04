@@ -1,0 +1,9 @@
+name: orca_env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - ffmpeg=8.0.0
+  - pip
+  - pip:
+      - -e .

@@ -191,7 +191,7 @@ def wav_to_array(filepath,
     np.around(spec_arr, 2, out=spec_arr)
     df = pd.DataFrame(spec_arr, columns=freqs, index=times)
     df.columns = df.columns.map(str)
-
+    
     # Create the broadband dataframe with the same strategy
     rms_arr = np.asarray(rms, dtype=np.float64)
     np.around(rms_arr, 2, out=rms_arr)
@@ -209,11 +209,13 @@ def wav_to_array(filepath,
         oct_df = pd.DataFrame(oct_arr, columns=fm, index=times)
         # Average over desired time and convert to decibels for bands
         oct_df = array_resampler_bands(df=oct_df, delta_t=delta_t)
+        
         return oct_df, rms_df
 
     else:
         # Convert PSD back to amplitude, average over time period, and convert back to decibels
         df = array_resampler(df=df, delta_t=delta_t)
+
         return df, rms_df
 
 
@@ -237,7 +239,7 @@ def array_resampler(df, delta_t=1):
     resampled_df = pd.DataFrame(resampled_df, columns=cols)
     resampled_df['ind'] = ind
     resampled_df = resampled_df.set_index(pd.DatetimeIndex(resampled_df['ind']))
-
+    resampled_df = resampled_df.drop(columns=['ind']) ## 2026-01-28 fix as pandas doesn't automatically drop the old index column in newer versions
     sample_length = str(delta_t) + 's'
 
     # Average over given time span
