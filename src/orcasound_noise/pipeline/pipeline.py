@@ -5,7 +5,6 @@ import tempfile
 import time
 import logging
 import random
-from pathlib import Path
 
 
 # Third part imports
