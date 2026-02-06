@@ -274,11 +274,10 @@ class NoiseAnalysisPipeline:
             psd_frame['month'] = psd_frame.index.strftime('%m')
             psd_frame['year'] = psd_frame.index.strftime('%Y')
             psd_frame['hydrophone'] = self.hydrophone.name
-            psd_frame['type'] = 'psd'
 
             psd_frame.to_parquet(
-                save_folder + '/' + s3_save_folder,
-                partition_cols=['year', 'month', 'day', 'hydrophone', 'type'],
+                save_folder + '/' + s3_save_folder + '/psd',
+                partition_cols=['hydrophone','year', 'month', 'day'],
                 engine='pyarrow',
                 index=True,
                 )
@@ -287,11 +286,10 @@ class NoiseAnalysisPipeline:
             broadband_frame['month'] = broadband_frame.index.strftime('%m')
             broadband_frame['year'] = broadband_frame.index.strftime('%Y')
             broadband_frame['hydrophone'] = self.hydrophone.name
-            broadband_frame['type'] = 'broadband'
 
             broadband_frame.to_parquet(
-                save_folder + '/' + s3_save_folder,
-                partition_cols=['year', 'month', 'day', 'hydrophone', 'type'],
+                save_folder + '/' + s3_save_folder + '/broadband',
+                partition_cols=['hydrophone','year', 'month', 'day'],
                 engine='pyarrow',
                 index=True,
                 )
