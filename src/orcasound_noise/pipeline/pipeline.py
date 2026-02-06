@@ -274,10 +274,11 @@ class NoiseAnalysisPipeline:
             psd_frame['month'] = psd_frame.index.strftime('%m')
             psd_frame['year'] = psd_frame.index.strftime('%Y')
             psd_frame['hydrophone'] = self.hydrophone.name
+            psd_frame.columns = psd_frame.columns.astype(str)
 
             psd_frame.to_parquet(
-                save_folder + '/' + s3_save_folder + '/psd',
-                partition_cols=['hydrophone','year', 'month', 'day'],
+                os.path.join(save_folder, s3_save_folder, 'psd'),
+                partition_cols=['hydrophone' ,'year', 'month', 'day'],
                 engine='pyarrow',
                 index=True,
                 )
@@ -286,18 +287,19 @@ class NoiseAnalysisPipeline:
             broadband_frame['month'] = broadband_frame.index.strftime('%m')
             broadband_frame['year'] = broadband_frame.index.strftime('%Y')
             broadband_frame['hydrophone'] = self.hydrophone.name
+            broadband_frame.columns = broadband_frame.columns.astype(str)
 
             broadband_frame.to_parquet(
-                save_folder + '/' + s3_save_folder + '/broadband',
-                partition_cols=['hydrophone','year', 'month', 'day'],
+                os.path.join(save_folder, s3_save_folder, 'broadband'),
+                partition_cols=['hydrophone' ,'year', 'month', 'day'],
                 engine='pyarrow',
                 index=True,
                 )
             
             if upload_to_s3:
-                self.file_connector.upload_partitioned_folder(save_folder + '/' + s3_save_folder)
+                self.file_connector.upload_partitioned_folder(os.path.join(save_folder, s3_save_folder))
 
-            return os.path.join(save_folder, s3_save_folder)
+            return os.path.join(save_folder, s3_save_folder, 'psd'), os.path.join(save_folder, s3_save_folder, 'broadband')
         
         # Non-partitioned save
         filePath = os.path.join(save_folder, fileName)

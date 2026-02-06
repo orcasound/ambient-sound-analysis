@@ -1,7 +1,5 @@
 import datetime as dt
 import logging
-import io
-import os
 import subprocess
 
 import boto3
@@ -135,18 +133,50 @@ class S3FileConnector:
         Upload a partitioned parquet folder to the S3 archive
 
         Uses AWS CLI to perform the upload to handle partitioned folders and upload only new files.
+        Requires the `aws` CLI to be installed and available on PATH.
 
-        * folder_path: Path to the local folder containing partitioned parquet files, folder path needs to include S3 key prefix
+        * folder_path: Path to the local folder containing partitioned parquet files.
+          The local folder path must include the S3 key prefix used by this connector
+          (i.e. ``self.save_folder``) so that the local partition hierarchy matches
+          the S3 key structure.
+          For example, if:
+            - ``self.save_bucket = "orcasound-noise"``
+            - ``self.save_folder = "ambient-sound-analysis/data/"``
+          then a valid ``folder_path`` could be::
+              /local/path/ambient-sound-analysis/data/
+            or::
+              /local/path/ambient-sound-analysis/data/hydrophone=orcasound_lab/year=2023
+          In general, ``folder_path`` should contain ``self.save_folder`` as a substring.
         """
         if self.save_folder not in folder_path:
             raise ValueError(f"folder_path must include '{self.save_folder}' to match S3 key prefix.")
         
         # Use AWS CLI to sync folder to S3
-        subprocess.run([
-            "aws", "s3", "sync",
-            folder_path, f"s3://{self.save_bucket}/{self.save_folder}/",
-            "--no-overwrite"
-        ], check=True)
+        try:
+            subprocess.run(
+                [
+                    "aws", "s3", "sync",
+                    folder_path, f"s3://{self.save_bucket}/{self.save_folder}/",
+                    "--no-overwrite",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError as exc:
+            logging.error(
+                "AWS CLI is not installed or not found in PATH. "
+                "Please install and configure the AWS CLI to use upload_partitioned_folder."
+            )
+            raise
+        except subprocess.CalledProcessError as exc:
+            logging.error(
+                "AWS CLI sync command failed with return code %s.\nStdout:\n%s\nStderr:\n%s",
+                exc.returncode,
+                exc.stdout,
+                exc.stderr,
+            )
+            raise
 
     def get_files(self, start: dt.datetime, end: dt.datetime, secs_per_sample: int, hz_bands=None, is_broadband=False):
         """
