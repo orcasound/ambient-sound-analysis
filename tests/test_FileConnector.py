@@ -1,6 +1,6 @@
 import datetime as dt
 import pytest
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 import sys
 import os
 
@@ -73,7 +73,7 @@ class TestUploadPartitionedFolder:
                 's3://test-archive-bucket/archive/psd/',
                 '--no-overwrite'
             ]
-            mock_subprocess.assert_called_once_with(expected_cmd, check=True)
+            mock_subprocess.assert_called_once_with(expected_cmd, check=True, capture_output=True, text=True)
     
     @patch('orcasound_noise.utils.file_connector.boto3.resource')
     @patch('orcasound_noise.utils.file_connector.boto3.client')
@@ -118,7 +118,7 @@ class TestUploadPartitionedFolder:
                 's3://test-archive-bucket/archive/psd/',
                 '--no-overwrite'
             ]
-            mock_subprocess.assert_called_once_with(expected_cmd, check=True)
+            mock_subprocess.assert_called_once_with(expected_cmd, check=True, capture_output=True, text=True)
     
     @patch('orcasound_noise.utils.file_connector.boto3.resource')
     @patch('orcasound_noise.utils.file_connector.boto3.client')
@@ -166,4 +166,4 @@ class TestUploadPartitionedFolder:
                 's3://test-archive-bucket/archive/psd/',
                 '--no-overwrite'
             ]
-            mock_subprocess.assert_called_once_with(expected_cmd, check=True)
+            mock_subprocess.assert_called_once_with(expected_cmd, check=True, capture_output=True, text=True)

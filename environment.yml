@@ -4,6 +4,7 @@ channels:
 dependencies:
   - python=3.11
   - ffmpeg=8.0.0
+  # Requires AWS CLI on PATH for upload_partitioned_folder (external install).
   - pip
   - pip:
       - -e .
