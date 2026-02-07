@@ -208,7 +208,7 @@ def wav_to_array(filepath,
         np.around(oct_arr, 2, out=oct_arr)
         oct_df = pd.DataFrame(oct_arr, columns=fm, index=times)
         # Average over desired time and convert to decibels for bands
-        oct_df = array_resampler_bands(df=oct_df, delta_t=delta_t)
+        oct_df = array_resampler_bands(df=oct_df, delta_t=delta_t, fm=fm)
         
         return oct_df, rms_df
 
@@ -255,13 +255,14 @@ def array_resampler(df, delta_t=1):
     return resampled_df
 
 
-def array_resampler_bands(df, delta_t=1):
+def array_resampler_bands(df, delta_t=1, fm=None):
     """
     This function takes in the data frame for bands or broadband, averages over time frame, and converts it to db.
 
     Args:
         df: data frame of spectrogram data
         delta_t: Int, number of seconds per sample
+        fm: if using octave bands, pass octave band frequencies for dataframe column names
 
     Returns:
         resampled_df: data frame of broadband data.
@@ -278,6 +279,9 @@ def array_resampler_bands(df, delta_t=1):
     resampled_df = librosa.amplitude_to_db(resampled_df, ref=1, top_db=200.0)
     # Reconstruct Dataframe
     resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
+    
+    if fm is not None:
+        resampled_df.columns = fm
 
     return resampled_df
 
