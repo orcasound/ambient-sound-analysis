@@ -16,3 +16,5 @@ plotly==6.5.0
 altair<5
 pytest 
 pytest-asyncio
+polars==1.38.0
+pyarrow==23.0.0
