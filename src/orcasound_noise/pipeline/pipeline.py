@@ -238,7 +238,7 @@ class NoiseAnalysisPipeline:
             raise ValueError("Specify either 'safe' or 'fast' mode")
 
     def generate_parquet_file(self, start: dt.datetime, end: dt.datetime, pqt_folder_override=None,
-                              upload_to_s3=False):
+                              upload_to_s3=False, partitioning=False):
         """
         Create a parquet file of the psd at the given daterange.
 
@@ -246,28 +246,66 @@ class NoiseAnalysisPipeline:
         * end: datetime, end of data to poll
         * pqt_folder_override: Overide the object level settings for where to save pqt files.
         * upload_to_s3: Boolean, set to true to upload file to S3 after saving
+        * partitioning: Boolean, set to true to partition parquet file by year, month, day, hydrophone, type (PSD or BB)
 
         # Return
         Filepath of generated pqt file.
         """
 
         # Create PSD and broadband Dataframes
-        pds_frame, broadband_frame = self.generate_psds(start, end, overwrite_output=True)
+        psd_frame, broadband_frame = self.generate_psds(start, end, overwrite_output=True)
 
-        if pds_frame is None:
+        if psd_frame is None:
             return None, None
 
-        # Save file locally
+        # Save file locally or into temp dir
         save_folder = pqt_folder_override or self.pqt_folder
+        # fetch s3 save folder from hydrophone enum for s3 upload path
+        s3_save_folder = self.hydrophone.save_folder
         os.makedirs(save_folder, exist_ok=True)
+
         fileName = self.file_connector.create_filename(start, end, self.delta_t, self.delta_f,
                                                        octave_bands=self.bands)
         broadbandName = self.file_connector.create_filename(start, end, self.delta_t, is_broadband=True)
+
+        if partitioning:
+            psd_frame['day'] = psd_frame.index.strftime('%d')
+            psd_frame['month'] = psd_frame.index.strftime('%m')
+            psd_frame['year'] = psd_frame.index.strftime('%Y')
+            psd_frame['hydrophone'] = self.hydrophone.name
+            psd_frame.columns = psd_frame.columns.astype(str)
+
+            psd_frame.to_parquet(
+                os.path.join(save_folder, s3_save_folder, 'psd'),
+                partition_cols=['hydrophone' ,'year', 'month', 'day'],
+                engine='pyarrow',
+                index=True,
+                )
+
+            broadband_frame['day'] = broadband_frame.index.strftime('%d')
+            broadband_frame['month'] = broadband_frame.index.strftime('%m')
+            broadband_frame['year'] = broadband_frame.index.strftime('%Y')
+            broadband_frame['hydrophone'] = self.hydrophone.name
+            broadband_frame.columns = broadband_frame.columns.astype(str)
+
+            broadband_frame.to_parquet(
+                os.path.join(save_folder, s3_save_folder, 'broadband'),
+                partition_cols=['hydrophone' ,'year', 'month', 'day'],
+                engine='pyarrow',
+                index=True,
+                )
+            
+            if upload_to_s3:
+                self.file_connector.upload_partitioned_folder(os.path.join(save_folder, s3_save_folder))
+
+            return os.path.join(save_folder, s3_save_folder, 'psd'), os.path.join(save_folder, s3_save_folder, 'broadband')
+        
+        # Non-partitioned save
         filePath = os.path.join(save_folder, fileName)
         broadbandFilePath = os.path.join(save_folder, broadbandName)
-        pds_frame.columns = pds_frame.columns.astype(str)
+        psd_frame.columns = psd_frame.columns.astype(str)
         broadband_frame.columns = broadband_frame.columns.astype(str)
-        pds_frame.to_parquet(filePath)
+        psd_frame.to_parquet(filePath)
         broadband_frame.to_parquet(broadbandFilePath)
 
         # Upload to S3 bucket
