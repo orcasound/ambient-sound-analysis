@@ -16,3 +16,4 @@ plotly==6.5.0
 altair<5
 pytest 
 pytest-asyncio
+geopandas==1.1.2
