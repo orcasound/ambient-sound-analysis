@@ -13,5 +13,5 @@ From the repo root:
 python -m tests.generate_test_data
 ```
 
-This will overwrite any existing golden `.pkl` files in this folder.
+This will overwrite any existing golden `.csv` files in this folder.
 
