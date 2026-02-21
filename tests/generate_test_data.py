@@ -31,8 +31,8 @@ def _normalize_df(df):
 
 
 def _golden_paths(golden_dir, stem, config_name):
-    psd_out = os.path.join(golden_dir, f"{stem}__{config_name}__psd.pkl")
-    bb_out = os.path.join(golden_dir, f"{stem}__{config_name}__bb.pkl")
+    psd_out = os.path.join(golden_dir, f"{stem}__{config_name}__psd.csv")
+    bb_out = os.path.join(golden_dir, f"{stem}__{config_name}__bb.csv")
     return psd_out, bb_out
 
 
@@ -108,8 +108,8 @@ def generate():
                     bb_df = _normalize_df(bb_df)
 
                     psd_out, bb_out = _golden_paths(golden_dir, stem, cfg["name"])
-                    psd_df.to_pickle(psd_out)
-                    bb_df.to_pickle(bb_out)
+                    psd_df.to_csv(psd_out)
+                    bb_df.to_csv(bb_out)
 
                     print(f"Wrote golden: {os.path.basename(psd_out)}")
                     print(f"Wrote golden: {os.path.basename(bb_out)}")

@@ -42,8 +42,8 @@ We use **golden-file regression tests** to ensure that pipeline outputs remain s
 and dependency/Python upgrades.
 
 - **Location**: `tests/golden/`
-- **Naming**: `{stem}__{config}__psd.pkl` and `{stem}__{config}__bb.pkl`
-  - Example: `live000__60s_100hz__psd.pkl`
+- **Naming**: `{stem}__{config}__psd.csv` and `{stem}__{config}__bb.csv`
+  - Example: `live000__60s_100hz__psd.csv`
 
 Golden fixtures are generated from the local `.ts` samples in `test_files/` using `ffmpeg`, and then
 processed via `NoiseAnalysisPipeline.process_wav_file(...)`.
