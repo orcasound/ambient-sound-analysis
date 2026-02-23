@@ -69,7 +69,7 @@ class PartitionedAccessor:
         """
         df = self.get_time_range(start_time, end_time, psd=True)
         selected_cols = [
-            col for col in df.collect_schema().names() 
+            col for col in df.columns
             if col.isdigit() and freq_low <= int(col) <= freq_high
         ]
 
@@ -84,7 +84,7 @@ class PartitionedAccessor:
             .select(['__index_level_0__', 'hydrophone', 'year', 'month', 'day', 'sound_pressure_level_db'])
         )
 
-        return broadband.collect()
+        return broadband
 
     def get_quantile_range(self, start_time: dt.datetime, end_time: dt.datetime):
         """
@@ -103,7 +103,7 @@ class PartitionedAccessor:
             ).alias("quantile")
         ).filter(pl.col("0") > 0).select(["0", "quantile"])
 
-        return quant_df.collect()
+        return quant_df
     
     def get_quantiles(self, start_time: dt.datetime, end_time: dt.datetime):
         """
@@ -123,7 +123,7 @@ class PartitionedAccessor:
             pl.col('0').quantile(0.95).alias('q95')
         )
 
-        return quantiles.collect()
+        return quantiles
     
     def get_percentage_over_threshold(self, start_time: dt.datetime, end_time: dt.datetime, threshold: float = 120.0):
         """
@@ -141,7 +141,7 @@ class PartitionedAccessor:
             .select(((pl.col('0') > threshold).sum() / pl.len()).alias(f"Percentage_of_time_over_{threshold}dB"))
         )
 
-        return percentage_df.collect()
+        return percentage_df
 
     def polars_to_pandas(self, pl_df: pl.DataFrame):
         """
