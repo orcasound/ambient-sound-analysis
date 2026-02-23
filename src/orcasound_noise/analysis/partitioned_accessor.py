@@ -59,13 +59,15 @@ class PartitionedAccessor:
     # Currently assuming that data settings are delta_f = 1 and bands = 12 for calculating broadband noise levels, but this may need to be updated if data settings change
     def get_broadband(self, start_time: dt.datetime, end_time: dt.datetime, freq_low: int, freq_high: int, ref: float):
         """
-        Retrieves data from the specified time range for the orca communication band (500-15000 Hz).
+        Calculates broadband sound pressure level for a specified frequency range from PSD data.
         Args:
             start_time (dt.datetime): The start of the time range.
             end_time (dt.datetime): The end of the time range.
-            ref (float): The reference waveform
+            freq_low (int): Lower bound of frequency range in Hz (e.g., 500 for orca communication band).
+            freq_high (int): Upper bound of frequency range in Hz (e.g., 15000 for orca communication band).
+            ref (float): Reference pressure value (use 1.0 for normalized; use hydrophone.bb_ref for calibrated).
         Returns:
-            pl.DataFrame: The filtered PSD DataFrame containing data within the specified time range and orca communication band (500-15000 Hz).
+            pl.DataFrame: DataFrame with columns including __index_level_0__, hydrophone, and sound_pressure_level_db.
         """
         df = self.get_time_range(start_time, end_time, psd=True)
         selected_cols = [
