@@ -94,7 +94,7 @@ class PartitionedAccessor:
             .with_columns([pl.col(col) * 0.577 * int(col) for col in selected_cols])
             # sum the power across the selected frequency bands and convert back to dB re ref Pa
             .with_columns((10 * np.log10(pl.sum_horizontal(selected_cols)/ref**2)).alias('sound_pressure_level_db'))
-            .select(['__index_level_0__', 'hydrophone', 'year', 'month', 'day', 'sound_pressure_level_db'])
+            .select(['__index_level_0__', 'year', 'month', 'day', 'sound_pressure_level_db'])
         )
 
         return broadband
