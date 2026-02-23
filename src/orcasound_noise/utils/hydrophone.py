@@ -13,4 +13,4 @@ class Hydrophone(Enum):
     PORT_TOWNSEND = HPhoneTup("port_townsend", "audio-orcasound-net", "rpi_port_townsend", "acoustic-sandbox", "ambient-sound-analysis/port_townsend", 71.6406580028601)
     SUNSET_BAY = HPhoneTup("sunset_bay", "audio-orcasound-net", "rpi_sunset_bay", "acoustic-sandbox", "ambient-sound-analysis/sunset_bay", 71.6406580028601)
     SANDBOX = HPhoneTup("sandbox", "acoustic-sandbox", "ambient-sound-analysis", "acoustic-sandbox", "ambient-sound-analysis", 71.6406580028601)
-    ORCASOUND_LAB_DATA = HPhoneTup("orcasound_lab", "audio-orcasound-net", "rpi_orcasound_lab", "acoustic-sandbox", "ambient-sound-analysis/data", 71.6406580028601)
+    ORCASOUND_LAB_DATA = HPhoneTup("orcasound_lab", "audio-orcasound-net", "rpi_orcasound_lab", "acoustic-sandbox", "ambient-sound-analysis/data_2.0", 71.6406580028601)
