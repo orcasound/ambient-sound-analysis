@@ -46,12 +46,6 @@ class PartitionedAccessor:
         else:
             df = self.bb_df
         filtered = df.filter(
-            (pl.col('year') >= start_time.year) &
-            (pl.col('year') <= end_time.year) &
-            (pl.col('month') >= start_time.month) &
-            (pl.col('month') <= end_time.month) &
-            (pl.col('day') >= start_time.day) &
-            (pl.col('day') <= end_time.day) &
             (pl.col('__index_level_0__') >= start_time) &
             (pl.col('__index_level_0__') <= end_time)
         )
