@@ -1,6 +1,8 @@
 import polars as pl
 import numpy as np
 import datetime as dt
+import os
+from typing import Optional, Mapping, Any
 
 from ..utils import Hydrophone
 
@@ -18,14 +20,27 @@ FREQ_BANDS_R40 = [
 ]
 
 class PartitionedAccessor:
-    def __init__(self, hydrophone: Hydrophone):
+    def __init__(
+        self,
+        hydrophone: Hydrophone,
+        *,
+        aws_profile: Optional[str] = None,
+        aws_region: str = "us-west-2",
+        storage_options: Optional[Mapping[str, Any]] = None,
+    ):
         self.hydrophone = hydrophone
         self.s3_path_bb = f's3://{self.hydrophone.value.save_bucket}/{self.hydrophone.value.save_folder}/broadband/hydrophone={self.hydrophone.value.name}/'
         self.s3_path_psd = f's3://{self.hydrophone.value.save_bucket}/{self.hydrophone.value.save_folder}/psd/hydrophone={self.hydrophone.value.name}/'
 
+        opts = dict(storage_options or {})
+        opts.setdefault("aws_region", aws_region)
+        profile = aws_profile or os.getenv("AWS_PROFILE")
+        if profile and "aws_profile" not in opts:
+            opts["aws_profile"] = profile
+
         try:
-            self.psd_df = pl.scan_parquet(self.s3_path_psd,  storage_options={'aws_region': 'us-west-2'})
-            self.bb_df = pl.scan_parquet(self.s3_path_bb,  storage_options={'aws_region': 'us-west-2'})
+            self.psd_df = pl.scan_parquet(self.s3_path_psd, storage_options=opts)
+            self.bb_df = pl.scan_parquet(self.s3_path_bb, storage_options=opts)
         except FileNotFoundError as e:
             print(f"Error: File was not found. Details: {e}")
         except Exception as e:
@@ -50,10 +65,6 @@ class PartitionedAccessor:
             (pl.col('__index_level_0__') <= end_time)
         )
         result = filtered.collect()
-        if psd:
-            index_cols = [c for c in result.columns if c.isdigit()]
-            rename_map = {str(i): str(FREQ_BANDS_R40[int(i)]) for i in range(len(FREQ_BANDS_R40)) if str(i) in index_cols}
-            result = result.rename(rename_map)
         return result
     
     # Currently assuming that data settings are delta_f = 1 and bands = 12 for calculating broadband noise levels, but this may need to be updated if data settings change
