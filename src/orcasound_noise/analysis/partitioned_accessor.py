@@ -11,31 +11,21 @@ class PartitionedAccessor:
         self.start_time = start_time
         self.end_time = end_time
 
-        dates = []
+        s3_loc = f"s3://{hydrophone.value.save_bucket}/{hydrophone.value.save_folder}"
+        psd_paths = []
+        bb_paths = []
         d = start_time.date()
         while d <= end_time.date():
-            dates.append(d)
+            psd_path = f"{s3_loc}/psd/hydrophone={hydrophone.value.name}/year={d.year}/month={d.month:02d}/day={d.day:02d}/*.parquet"
+            bb_path = f"{s3_loc}/broadband/hydrophone={hydrophone.value.name}/year={d.year}/month={d.month:02d}/day={d.day:02d}/*.parquet"
+            psd_paths.append(psd_path)
+            bb_paths.append(bb_path)
             d += timedelta(days=1)
-
-        psd_paths = [
-            f"s3://acoustic-sandbox/ambient-sound-analysis/data_2.0/psd/hydrophone={hydrophone.value.name}/year={d.year}/month={d.month:02d}/day={d.day:02d}/*.parquet"
-            for d in dates
-        ]
-
-        bb_paths = [
-            f"s3://acoustic-sandbox/ambient-sound-analysis/data_2.0/broadband/hydrophone={hydrophone.value.name}/year={d.year}/month={d.month:02d}/day={d.day:02d}/*.parquet"
-            for d in dates
-        ]
         
-        try:
-            self.psd_df = (pl.scan_parquet(psd_paths,  storage_options={'aws_region': 'us-west-2'})
-                           .filter(pl.col("__index_level_0__").is_between(start_time, end_time)))
-            self.bb_df = (pl.scan_parquet(bb_paths,  storage_options={'aws_region': 'us-west-2'})
-                          .filter(pl.col("__index_level_0__").is_between(start_time, end_time)))
-        except FileNotFoundError as e:
-            print(f"Error: File was not found. Details: {e}")
-        except Exception as e:
-            print(f"An unexpected error occurred: {e}")
+        self.psd_df = (pl.scan_parquet(psd_paths,  storage_options={'aws_region': 'us-west-2'})
+                        .filter(pl.col("__index_level_0__").is_between(start_time, end_time)).sort("__index_level_0__"))
+        self.bb_df = (pl.scan_parquet(bb_paths,  storage_options={'aws_region': 'us-west-2'})
+                        .filter(pl.col("__index_level_0__").is_between(start_time, end_time)).sort("__index_level_0__"))
     
     def get_dataframes(self):
         """
