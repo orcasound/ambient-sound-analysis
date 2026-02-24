@@ -27,16 +27,20 @@ Current partition structure:
 
 ```python
 import datetime as dt
-from orcasound_noise.analysis import ParitionedAcccessor
+from orcasound_noise.analysis.partitioned_accessor import ParitionedAcccessor
 from orcasound_noise.utils import Hydrophone
 
-ac_orcalab = PartitionedAccessor(Hydrophone.ORCASOUND_LAB)
-
+# start and end time for time range of dataset
 start = dt.datetime(2026, 2, 5, 0, 0, 0)
-end = dt.datetime(2026, 2, 5, 12, 0, 0)
+end = dt.datetime(2026, 2, 6, 0, 0, 0)
 
-psd_df = ac_orcalab.get_time_range(start, end, psd=True)
-bb_df = ac_orcalab.get_time_range(start, end, psd=False)
+pa_orcalab = PartitionedAccessor(Hydrophone.ORCASOUND_LAB, start, end)
+
+# start and end time of a specific ship passage, or other event of interest
+start_ship = dt.datetime(2026, 2, 5, 12, 30, 0)
+end_ship = dt.datetime(2026, 2, 5, 12, 55, 0)
+
+quantiles = pa_orcalab.get_quantiles(start_ship, end_ship)
 ```
 
 ### Overview of Broadband sound level calculation from PSD
