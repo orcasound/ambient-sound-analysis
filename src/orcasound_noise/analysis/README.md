@@ -27,7 +27,7 @@ Current partition structure:
 
 ```python
 import datetime as dt
-from orcasound_noise.analysis.partitioned_accessor import ParitionedAcccessor
+from orcasound_noise.analysis.partitioned_accessor import ParitionedAccessor
 from orcasound_noise.utils import Hydrophone
 
 # start and end time for time range of dataset
