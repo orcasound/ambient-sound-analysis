@@ -5,16 +5,22 @@ import tempfile
 import time
 import logging
 import random
+import requests
+import dotenv
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import zipfile
 
 
 # Third part imports
 import numpy as np
 import pandas as pd
+import polars as pl
 from multiprocessing import Pool
 
 # Local imports
 #
-# `orca_hls_utils` is an optional dependency when running purely local
+# `orca_hls_utils` is an optional dependency when runningg purely local
 # processing/tests. Import it lazily so importing this module does not fail
 # in environments that haven't installed the git dependency yet.
 try:
@@ -457,3 +463,69 @@ class NoiseAnalysisPipeline:
         ref = np.percentile(bb, 5)
 
         return ref
+
+class ShipAnalysisPipeline:
+    def __init__(self):
+        self.m2_token = dotenv.get_key('.env', 'M2_token')
+        self.user_id = dotenv.get_key('.env', 'user_id')
+        self.radar_id = 26
+        self._s_date, self._e_date = self.__get_sdate_edate()
+        self.url = f"https://m2mobile.protectedseas.net/api/map/{self.radar_id}/7day/download_weekly_zip"
+    
+    def __get_sdate_edate(self):
+        # get current time
+        curr_date = dt.datetime.now(ZoneInfo("America/Los_Angeles")).date()
+        s_date = curr_date - dt.timedelta(8)
+        e_date = curr_date - dt.timedelta(1)
+        return s_date, e_date
+
+    def get_raw_data_from_m2(self, temp_loc='./data/temp/', return_gdf=False):
+        """
+        Get raw AIS and radar data from M2 API for the past week, unzip the file, and return the geodataframes.
+        """
+        import geopandas as gpd
+
+        headers = {   
+            "Authorization": self.m2_token,
+            "accept": "application/json"
+        }
+        response = requests.get(self.url, headers=headers, timeout=300)
+        
+        if not os.path.exists(f"{temp_loc}"):
+            os.makedirs(f"{temp_loc}")
+                          
+        zip_path = Path(f"{temp_loc}{self.s_date}_weekly.zip")
+        output_dir = Path(f"{temp_loc}{self.s_date}_weekly")
+
+        # Save the zip file
+        with open(zip_path, "wb") as f:
+            f.write(response.content)
+        
+        # Unzip
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(output_dir)
+    
+        gdf_ais = gpd.read_file(f'{output_dir}/tracks_ais_7Day.shp')
+        gdf_radar = gpd.read_file(f'{output_dir}/tracks_radar_7Day.shp')
+
+        if return_gdf:
+            return gdf_ais, gdf_radar
+        
+        # Convert geometry to WKT (string)
+        gdf_ais["geometry"] = gdf_ais.geometry.to_wkt()
+        gdf_radar["geometry"] = gdf_radar.geometry.to_wkt()
+
+        # Convert to Polars
+        pl_ais = pl.from_pandas(gdf_ais).lazy()
+        pl_radar = pl.from_pandas(gdf_radar).lazy()
+
+        return pl_ais, pl_radar
+
+    @property
+    def s_date(self):
+        return self._s_date
+    
+    @property
+    def e_date(self):
+        return self._e_date
+    
