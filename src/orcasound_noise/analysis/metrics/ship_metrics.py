@@ -57,7 +57,7 @@ class ShipMetricsCalculator:
         with timestamps and a validity flag based on confidence
         and available association ID.
 
-        lr_radar: LazyFrame with raw radar data
+        lf_radar: LazyFrame with raw radar data
         """
         return (
             lf_radar
