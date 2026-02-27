@@ -270,7 +270,6 @@ class ShipMetricsCalculator:
         target_crs: CRS to project geometries to for accurate distance calculation (default is UTM zone 10N for PNW, EPSG:32610)
         """
 
-        from shapely.geometry import Point
         from shapely import wkt
         
         # Hydrophone point (lon, lat)
