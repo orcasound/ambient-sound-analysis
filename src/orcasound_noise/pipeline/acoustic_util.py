@@ -1,5 +1,6 @@
 import os
 import datetime
+from weakref import ref
 
 import librosa
 import librosa.display
@@ -56,7 +57,6 @@ def wavelet_denoising(spectrogram):
         Denoised spectrogram data in the form of numpy array.
     """
     im_bayes = denoise_wavelet(spectrogram,
-                               multichannel=False,
                                convert2ycbcr=False,
                                method="BayesShrink",
                                mode="soft")
@@ -168,8 +168,17 @@ def wav_to_array(filepath,
 
     # Apply the STFT
     D_highres = librosa.stft(y, hop_length=hop_length, n_fft=n_fft)
-    # Convert from amplitude to decibels
-    spec = librosa.amplitude_to_db(np.abs(D_highres), ref=ref)
+    # Begin EM edits: get window power
+    window = librosa.filters.get_window("hann", n_fft, fftbins=True)
+    window_power = np.sum(window**2)
+    power = np.abs(D_highres) ** 2
+    # units of power are amplitude^2, so divide by window power and sample rate to get power spectral density in units of amplitude^2/Hz
+    psd = power / (window_power * sr)
+    # Convert to decibels
+    spec: np.ndarray = 10.0 * np.log10(np.maximum(ref**2, psd))
+    spec -= 10.0 * np.log10(ref**2)
+    #spec = librosa.amplitude_to_db(np.abs(D_highres), ref=ref)
+    # End EM edits
     # Save the frequencies and time for Dataframe construction
     freqs = librosa.core.fft_frequencies(sr=sr, n_fft=n_fft)
     secs = librosa.core.frames_to_time(np.arange(spec.shape[1]), sr=sr, n_fft=n_fft, hop_length=hop_length)
@@ -179,12 +188,16 @@ def wav_to_array(filepath,
     for transform_func in transforms:
         spec = transform_func(spec)
 
-    rms = []
-    delta_f = sr / n_fft
+    # rms = []
+    # delta_f = sr / n_fft
     DT = D_highres.transpose()
-    # Sum over the frequencies for each time to calculate broadband
-    for i in range(len(DT)):
-        rms.append(delta_f * np.sum(np.abs(DT[i, :])))
+    # # Sum over the frequencies for each time to calculate broadband
+    # for i in range(len(DT)):
+    #     rms.append(delta_f * np.sum(np.abs(DT[i, :])))
+
+    p_rms = np.sum(psd, axis=0) * delta_f
+    rms: np.ndarray = 10.0 * np.log10(np.maximum(ref**2, p_rms))
+    rms -= 10.0 * np.log10(np.maximum(ref**2, ref**2))
 
     # Create the PSD Dataframe with minimal copies: round in-place on a float64 array
     spec_arr = np.asarray(spec.transpose(), dtype=np.float64)
