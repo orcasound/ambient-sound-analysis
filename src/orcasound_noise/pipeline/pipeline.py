@@ -20,7 +20,7 @@ from multiprocessing import Pool
 
 # Local imports
 #
-# `orca_hls_utils` is an optional dependency when runningg purely local
+# `orca_hls_utils` is an optional dependency when running purely local
 # processing/tests. Import it lazily so importing this module does not fail
 # in environments that haven't installed the git dependency yet.
 try:
