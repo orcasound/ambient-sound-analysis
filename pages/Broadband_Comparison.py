@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy import signal
 
-from src.orcasound_noise.analysis import accessor
+from src.orcasound_noise.analysis.legacy import accessor
 from src.orcasound_noise.utils.hydrophone import Hydrophone
 from src.orcasound_noise.pipeline import pipeline
 from src.orcasound_noise.pipeline import acoustic_util

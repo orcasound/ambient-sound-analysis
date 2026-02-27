@@ -4,7 +4,7 @@ from copy import deepcopy
 import streamlit as st
 import plotly.graph_objects as go
 
-from src.orcasound_noise.analysis import accessor
+from src.orcasound_noise.analysis.legacy import accessor
 from src.orcasound_noise.utils import Hydrophone
 from src.orcasound_noise.pipeline import pipeline
 from src.orcasound_noise.pipeline import acoustic_util
