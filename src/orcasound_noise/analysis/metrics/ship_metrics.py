@@ -205,7 +205,7 @@ class ShipMetricsCalculator:
         """
         Calculates all quantiles for all ships in one lazy operation.
 
-        lr_radar: LazyFrame with radar tracks
+        lf_radar: LazyFrame with radar tracks
         lf_sound: LazyFrame with sound data
         ref_comm: reference community background noise level for LSR calculation # 76.3
         ref_bb: reference broadband noise level for LSR calculation # 76.6
