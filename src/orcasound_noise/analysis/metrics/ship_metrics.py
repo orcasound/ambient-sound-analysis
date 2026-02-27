@@ -1,6 +1,5 @@
 import datetime as dt
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 import polars as pl
 from shapely.geometry import Point
