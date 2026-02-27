@@ -469,10 +469,10 @@ class ShipAnalysisPipeline:
         self.m2_token = dotenv.get_key('.env', 'M2_token')
         self.user_id = dotenv.get_key('.env', 'user_id')
         self.radar_id = 26
-        self._s_date, self._e_date = self.__get_sdate_edate()
+        self._s_date, self._e_date = self._get_sdate_edate()
         self.url = f"https://m2mobile.protectedseas.net/api/map/{self.radar_id}/7day/download_weekly_zip"
     
-    def __get_sdate_edate(self):
+    def _get_sdate_edate(self):
         # get current time
         curr_date = dt.datetime.now(ZoneInfo("America/Los_Angeles")).date()
         s_date = curr_date - dt.timedelta(8)
