@@ -9,7 +9,7 @@ def plot_spectrogram(df, title="Orcasound Ambient Sound Analysis", ship_df=None)
 
     fig = go.Figure()
 
-    TIME_DOWNSAMPLE_FACTOR = 30 
+    TIME_DOWNSAMPLE_FACTOR = 10 
     FREQ_DOWNSAMPLE_FACTOR = 10
 
     df_small = df.iloc[::TIME_DOWNSAMPLE_FACTOR].copy()

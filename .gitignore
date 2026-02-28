@@ -15,3 +15,4 @@ Icon[[:cntrl:]]
 taipy_visualization/__pycache__/
 taipy_visualization/.env
 M2_Ship_Data/
+.vscode/
