@@ -56,10 +56,12 @@ def wavelet_denoising(spectrogram):
     Returns:
         Denoised spectrogram data in the form of numpy array.
     """
-    im_bayes = denoise_wavelet(spectrogram,
+    spec_normalized = (spectrogram - spectrogram.min()) / (spectrogram.max() - spectrogram.min())
+    im_bayes = denoise_wavelet(spec_normalized,
                                convert2ycbcr=False,
                                method="BayesShrink",
                                mode="soft")
+    im_bayes = im_bayes * (spectrogram.max() - spectrogram.min()) + spectrogram.min()
     return im_bayes
 
 
@@ -172,6 +174,9 @@ def wav_to_array(filepath,
     window = librosa.filters.get_window("hann", n_fft, fftbins=True)
     window_power = np.sum(window**2)
     power = np.abs(D_highres) ** 2
+    # Apply transform to power before converting to PSD
+    for transform_func in transforms:
+        power = transform_func(power)
     # units of power are amplitude^2, so divide by window power and sample rate to get power spectral density in units of amplitude^2/Hz
     psd = power / (window_power * sr)
     # Convert to decibels
@@ -185,19 +190,27 @@ def wav_to_array(filepath,
     times = [t0 + datetime.timedelta(seconds=x) for x in secs]
 
     # Apply transforms
-    for transform_func in transforms:
-        spec = transform_func(spec)
+    # for transform_func in transforms:
+    #     spec = transform_func(spec)
 
     # rms = []
     # delta_f = sr / n_fft
-    DT = D_highres.transpose()
+    # DT = D_highres.transpose()
     # # Sum over the frequencies for each time to calculate broadband
     # for i in range(len(DT)):
     #     rms.append(delta_f * np.sum(np.abs(DT[i, :])))
 
     p_rms = np.sum(psd, axis=0) * delta_f
-    rms: np.ndarray = 10.0 * np.log10(np.maximum(ref**2, p_rms))
-    rms -= 10.0 * np.log10(np.maximum(ref**2, ref**2))
+    broadband: np.ndarray = 10.0 * np.log10(np.maximum(ref**2, p_rms))
+    broadband -= 10.0 * np.log10(ref**2)
+
+    p_rms_comm = np.sum(psd[500:15000,:], axis=0) * delta_f
+    broadband_comm: np.ndarray = 10.0 * np.log10(np.maximum(ref**2, p_rms_comm))
+    broadband_comm -= 10.0 * np.log10(np.maximum(ref**2, ref**2))
+
+    p_rms_ship = np.sum(psd[59:140,:], axis=0) * delta_f
+    broadband_ship: np.ndarray = 10.0 * np.log10(np.maximum(ref**2, p_rms_ship))
+    broadband_ship -= 10.0 * np.log10(np.maximum(ref**2, ref**2))
 
     # Create the PSD Dataframe with minimal copies: round in-place on a float64 array
     spec_arr = np.asarray(spec.transpose(), dtype=np.float64)
@@ -206,39 +219,41 @@ def wav_to_array(filepath,
     df.columns = df.columns.map(str)
     
     # Create the broadband dataframe with the same strategy
-    rms_arr = np.asarray(rms, dtype=np.float64)
-    np.around(rms_arr, 2, out=rms_arr)
-    rms_df = pd.DataFrame(rms_arr, index=times)
-    rms_df.columns = rms_df.columns.map(str)
+    np.around(broadband, 2, out=broadband)
+    np.around(broadband_comm, 2, out=broadband_comm)
+    np.around(broadband_ship, 2, out=broadband_ship)
+    bb_dict = {"broadband": broadband, "broadband_comm": broadband_comm, "broadband_ship": broadband_ship}
+    rms_df = pd.DataFrame(bb_dict, index=times)
     # Average over desired time and convert to decibels for the broadband
-    rms_df = array_resampler_bands(df=rms_df, delta_t=delta_t)
+    rms_df = array_resampler_bands(df=rms_df, delta_t=delta_t, ref=ref)
 
     # Calculate bands if specified
     if bands is not None:
         # Convert to bands
-        oct_unscaled, fm = spec_to_bands(np.abs(DT), bands, delta_f, freqs=freqs, ref=ref)
+        oct_unscaled, fm = spec_to_bands(psd.transpose(), bands, delta_f, freqs=freqs, ref=ref)
         oct_arr = np.asarray(oct_unscaled, dtype=np.float64)
         np.around(oct_arr, 2, out=oct_arr)
         oct_df = pd.DataFrame(oct_arr, columns=fm, index=times)
         # Average over desired time and convert to decibels for bands
-        oct_df = array_resampler_bands(df=oct_df, delta_t=delta_t, fm=fm)
+        oct_df = array_resampler_bands(df=oct_df, delta_t=delta_t, ref=ref, fm=fm)
         
         return oct_df, rms_df
 
     else:
         # Convert PSD back to amplitude, average over time period, and convert back to decibels
-        df = array_resampler(df=df, delta_t=delta_t)
+        df = array_resampler(df=df, delta_t=delta_t, ref=ref, fm=None)
 
         return df, rms_df
 
 
-def array_resampler(df, delta_t=1):
+def array_resampler(df, delta_t=1, ref=1, fm=None):
     """
     This function takes in the data frame of spectrogram data, converts it to amplitude, averages over time frame, and converts it back to db.
 
     Args:
         df: data frame of spectrogram data
         delta_t: Int, number of seconds per sample
+        fm: if using octave bands, pass octave band frequencies for dataframe column names
 
     Returns:
         resampled_df: data frame of spectrogram data.
@@ -248,7 +263,7 @@ def array_resampler(df, delta_t=1):
     ind = df.index
     resampled_df = df.to_numpy()
     # Convert back to amplitude for averaging
-    resampled_df = librosa.db_to_amplitude(resampled_df)
+    resampled_df = ref * np.power(10.0, resampled_df * 0.1)
     resampled_df = pd.DataFrame(resampled_df, columns=cols)
     resampled_df['ind'] = ind
     resampled_df = resampled_df.set_index(pd.DatetimeIndex(resampled_df['ind']))
@@ -261,14 +276,18 @@ def array_resampler(df, delta_t=1):
 
     resampled_df = resampled_df.to_numpy()
     # Convert back to decibels
-    resampled_df = librosa.amplitude_to_db(resampled_df, ref=1)
+    resampled_df = 10.0 * np.log10(np.maximum(ref**2, resampled_df))
+    resampled_df -= 10.0 * np.log10(ref**2)
     # Reconstruct Dataframe
     resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
+
+    if fm is not None:
+        resampled_df.columns = fm
 
     return resampled_df
 
 
-def array_resampler_bands(df, delta_t=1, fm=None):
+def array_resampler_bands(df, delta_t=1, ref=1, fm=None):
     """
     This function takes in the data frame for bands or broadband, averages over time frame, and converts it to db.
 
@@ -289,7 +308,8 @@ def array_resampler_bands(df, delta_t=1, fm=None):
 
     resampled_df = resampled_df.to_numpy()
     # Convert to decibels
-    resampled_df = librosa.amplitude_to_db(resampled_df, ref=1, top_db=200.0)
+    #rms: np.ndarray = 10.0 * np.log10(np.maximum(ref**2, resampled_df))
+    #rms -= 10.0 * np.log10(ref**2)
     # Reconstruct Dataframe
     resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
     
@@ -472,7 +492,8 @@ def spec_to_bands(psd, N, delta_f, freqs, ref):
     for row in psd:
         octaves = np.append(octaves, np.array([[band_power(row, g, delta_f) for g in gains]]), axis=0)
 
-    octaves_scaled = librosa.amplitude_to_db(octaves, ref=ref)
+    octaves_scaled: np.ndarray = 10.0 * np.log10(np.maximum(ref**2, octaves))
+    octaves_scaled -= 10.0 * np.log10(ref**2)
 
     return octaves_scaled, bands
 
