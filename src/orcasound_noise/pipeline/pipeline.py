@@ -13,6 +13,7 @@ import zipfile
 
 
 # Third part imports
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -465,52 +466,71 @@ class NoiseAnalysisPipeline:
         return ref
 
 class ShipAnalysisPipeline:
-    def __init__(self):
-        self.m2_token = dotenv.get_key('.env', 'M2_token')
-        self.user_id = dotenv.get_key('.env', 'user_id')
+    def __init__(self) -> None:
+        '''
+        Initialize the ShipAnalysisPipeline by setting up necessary parameters and temporary directories.
+        '''
+        self.m2_token = os.getenv("M2_token")
+        if not self.m2_token:
+            raise ValueError("M2_token is not set")
+        
+        # self.user_id = os.getenv("M2_user_id")
         self.radar_id = 26
         self._s_date, self._e_date = self._get_sdate_edate()
         self.url = f"https://m2mobile.protectedseas.net/api/map/{self.radar_id}/7day/download_weekly_zip"
+        self.folder_td = tempfile.TemporaryDirectory()
+        self.folder = self.folder_td.name
     
-    def _get_sdate_edate(self):
+    def _get_sdate_edate(self) -> tuple[dt.date, dt.date]:
+        '''
+        Get the start and end date for the M2 API request.
+        returns:
+            tuple[dt.date, dt.date]: Tuple of (start date, end date) where start date is 8 days ago and 
+        '''
         # get current time
         curr_date = dt.datetime.now(ZoneInfo("America/Los_Angeles")).date()
         s_date = curr_date - dt.timedelta(8)
         e_date = curr_date - dt.timedelta(1)
         return s_date, e_date
 
-    def get_raw_data_from_m2(self, temp_loc='./data/temp/', return_gdf=False):
+    def get_raw_data_from_m2(self, return_gdf=False) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame] | tuple[pl.LazyFrame, pl.LazyFrame]:
         """
-        Get raw AIS and radar data from M2 API for the past week, unzip the file, and return the geodataframes.
+        Get raw AIS and radar data from M2 API for the past week, unzip the file, and return the resulting track data.
+        Args:
+            return_gdf: If True, return the raw data as GeoDataFrames. If False
+        returns:
+            tuple[gpd.GeoDataFrame, gpd.GeoDataFrame] | tuple[pl.LazyFrame, pl.LazyFrame]: Tuple of (AIS data, Radar data) 
+            as either GeoDataFrames or Polars LazyFrames depending on the value of return_gdf.
         """
-        import geopandas as gpd
 
         headers = {   
             "Authorization": self.m2_token,
             "accept": "application/json"
         }
-        response = requests.get(self.url, headers=headers, timeout=300)
-        
-        if not os.path.exists(f"{temp_loc}"):
-            os.makedirs(f"{temp_loc}")
-                          
-        zip_path = Path(f"{temp_loc}{self.s_date}_weekly.zip")
-        output_dir = Path(f"{temp_loc}{self.s_date}_weekly")
+
+        # Make the GET request to download the zip file
+        try:
+            response = requests.get(self.url, headers=headers, timeout=300)
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(f"Failed to download data from M2 API at {self.url}: {exc}") from exc
+       
+        zip_path = f"{self.folder}/{self.start_date}_weekly.zip"
+        output_dir = f"{self.folder}/{self.end_date}_weekly"
 
         # Save the zip file
         with open(zip_path, "wb") as f:
             f.write(response.content)
-        
+
         # Unzip
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(output_dir)
-    
+
         gdf_ais = gpd.read_file(f'{output_dir}/tracks_ais_7Day.shp')
         gdf_radar = gpd.read_file(f'{output_dir}/tracks_radar_7Day.shp')
 
         if return_gdf:
             return gdf_ais, gdf_radar
-        
+
         # Convert geometry to WKT (string)
         gdf_ais["geometry"] = gdf_ais.geometry.to_wkt()
         gdf_radar["geometry"] = gdf_radar.geometry.to_wkt()
@@ -519,13 +539,27 @@ class ShipAnalysisPipeline:
         pl_ais = pl.from_pandas(gdf_ais).lazy()
         pl_radar = pl.from_pandas(gdf_radar).lazy()
 
+        # cleanup temp files
+        self.cleanup()
+
         return pl_ais, pl_radar
 
+    def cleanup(self):
+        """
+        Cleanup any internally-created temporary directories.
+        """
+        # TemporaryDirectory.cleanup() is idempotent; guard for None/AttributeError.
+        try:
+            if self.folder_td is not None:
+                self.folder_td.cleanup()
+                self.folder_td = None
+        except AttributeError:
+            pass
+
     @property
-    def s_date(self):
+    def start_date(self):
         return self._s_date
-    
+
     @property
-    def e_date(self):
+    def end_date(self):
         return self._e_date
-    
