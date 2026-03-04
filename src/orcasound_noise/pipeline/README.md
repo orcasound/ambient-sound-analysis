@@ -108,4 +108,3 @@ load_dotenv()
 ship_pipeline = ShipAnalysisPipeline()
 lf_ais, lf_radar = ship_pipeline.get_raw_data_from_m2() # It will load the latest 7 days of tracking data.
 ```
-```
