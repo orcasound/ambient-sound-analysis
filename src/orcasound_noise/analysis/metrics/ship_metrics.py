@@ -1,13 +1,8 @@
-import datetime as dt
 import geopandas as gpd
 import polars as pl
 from shapely.geometry import Point
 from shapely import wkt
 import time
-
-from orcasound_noise.analysis.partitioned_accessor import PartitionedAccessor
-from orcasound_noise.utils import Hydrophone
-from orcasound_noise.pipeline.pipeline import ShipAnalysisPipeline
 
 
 class ShipMetricsCalculator:
@@ -240,7 +235,6 @@ class ShipMetricsCalculator:
         quantile_exprs = []
         for col in ["comm_bb", "bb", "ship_bb"]:
             quantile_exprs.extend([
-                pl.col(col).mean().alias(f"{col}_avg"),
                 pl.col(col).quantile(0.05).alias(f"{col}_q05"),
                 pl.col(col).quantile(0.25).alias(f"{col}_q25"),
                 pl.col(col).quantile(0.50).alias(f"{col}_q50"),
@@ -327,81 +321,13 @@ class ShipMetricsCalculator:
         df_collected = lf_output.collect()
         dist_series = self.get_distance_to_hydrophone(df_collected, self.hydrophone_metadata)
         df_collected = df_collected.with_columns(min_dist = dist_series)
+        
+        # 6. Generate year/month/day columns for partitioning and drop geometry column
+        df_collected = df_collected.with_columns([
+            pl.col("s_timestamp").dt.year().alias("year"),
+            pl.col("s_timestamp").dt.to_string("%m").alias("month"),
+            pl.col("s_timestamp").dt.to_string("%d").alias("day")
+        ])
         df_collected = df_collected.drop("geometry")
 
         return df_collected
-    
-
-# Generate metrics and save to parquet
-
-# if __name__ == "__main__":
-#     from dotenv import load_dotenv
-#     load_dotenv()
-#     ship_pipeline = ShipAnalysisPipeline()
-#     print("DataFrames loaded")
-#     s_time = time.time()
-
-#     # For regular weekly data
-#     lf_ais, lf_radar = ship_pipeline.get_raw_data_from_m2()
-
-#     # For 7 days
-#     # lf_ais = gpd.read_file('data/temp/2026-02-20_weekly/tracks_ais_7Day.shp')
-#     # lf_radar = gpd.read_file('data/temp/2026-02-20_weekly/tracks_radar_7Day.shp')  
-
-#     # For testing with all data in Feb
-#     # lf_ais = gpd.read_file('data/ship/M2/26_2026_02/26_2026_02_tracks_ais.shp')
-#     # lf_radar = gpd.read_file('data/ship/M2/26_2026_02/26_2026_02_tracks_radar.shp') 
-
-#     # local data need to convert geometry to WKT for Polars since Polars doesn't support geometry types 
-#     # lf_ais["geometry"] = lf_ais.geometry.to_wkt()
-#     # lf_radar["geometry"] = lf_radar.geometry.to_wkt()
-#     # lf_ais = pl.from_pandas(lf_ais).lazy()
-#     # lf_radar = pl.from_pandas(lf_radar).lazy()
-    
-#     e_time = time.time()
-
-#     print(f"Raw data loaded from M2 in {e_time - s_time:.2f} seconds")
-    
-#     print("Sound DataFrames loaded")
-#     s_time = time.time()
-    
-#     # For regular weekly data
-#     start, end = ship_pipeline.start_date, ship_pipeline.end_date
-#     start = dt.datetime.combine(start, dt.time.min)
-#     end = dt.datetime.combine(end, dt.time.max)
-#     ac_orcalab = PartitionedAccessor(Hydrophone.ORCASOUND_LAB, start, end)
-
-#     lf_psd, lf_bb = ac_orcalab.get_dataframes(lazy=True)
-
-#     # For testing with all data in Feb
-#     # lf_bb = pl.read_parquet('data/sound/broadband/hydrophone=orcasound_lab/year=2026/month=02').lazy()
-#     e_time = time.time()
-#     print(f"DataFrames collected in {e_time - s_time:.2f} seconds")
-
-#     # sample data for testing
-#     lf_bb = lf_bb.with_columns(
-#         bb = pl.col("0"),
-#         comm_bb = pl.lit(1) * pl.col("0"),
-#         ship_bb = pl.lit(1) * pl.col("0")
-#     )
-
-#     print("calculate metrics")
-#     s_time = time.time()
-#     ship_metrics_cal = ShipMetricsCalculator(lf_radar, lf_ais, lf_bb)
-#     pl_ship_metrics = ship_metrics_cal.get_all_ship_metrics()
-#     e_time = time.time()
-#     print(f"Ship metrics calculated in {e_time - s_time:.2f} seconds")
-
-#     pl_ship_metrics = pl_ship_metrics.with_columns([
-#         pl.col("s_timestamp").dt.year().alias("year"),
-#         pl.col("s_timestamp").dt.to_string("%m").alias("month"),
-#         pl.col("s_timestamp").dt.to_string("%d").alias("day")
-#     ])
-
-#     print(pl_ship_metrics.head())
-#     # saving metrics to parquet with partitioning by year/month/day
-#     pl_ship_metrics.write_parquet(
-#         "data/temp_ship",
-#         use_pyarrow=True,
-#         pyarrow_options={"partition_cols": ["year", "month", "day"]}
-#     )
