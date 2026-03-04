@@ -93,7 +93,7 @@ A Power Spectral Density describes the power present in the audio signal as a fu
 A fast Fourier transform (FFT) is an algorithm that computes the discrete Fourier transform (DFT) of a sequence, or its inverse (IDFT). Fourier analysis converts a signal from its original domain (often time or space) to a representation in the frequency domain and vice versa.
 
 ## Ship Data Pipeline
-In this repo, we use ship tracking data from[Marine Monitor (M2)](https://m2marinemonitor.com/). M2 provides two types of data: AIS tracking data (received by an AIS receiver, if installed at the site) and radar tracking data (processed by a marine radar sensor). Currently, M2 only tracks vessels in the area of the `orcasound_lab` hydrophone.
+In this repo, we use ship tracking data from [Marine Monitor (M2)](https://m2marinemonitor.com/). M2 provides two types of data: AIS tracking data (received by an AIS receiver, if installed at the site) and radar tracking data (processed by a marine radar sensor). Currently, M2 only tracks vessels in the area of the `orcasound_lab` hydrophone.
 
 According to information from M2, the radar range is a conservative estimate of a reliable range of up to 5 nautical miles from the system. Sea and weather conditions may impact radar target detection and tracking. The AIS detection range of up to 25 nautical miles is an estimate based on data received by M2. 
 
