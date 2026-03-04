@@ -475,7 +475,7 @@ class ShipAnalysisPipeline:
             raise ValueError("M2_token is not set")
         
         # self.user_id = os.getenv("M2_user_id")
-        self.radar_id = 26
+        self.radar_id = 26 # currently hardcoded to orcasound lab radar, can be made dynamic in the future
         self._s_date, self._e_date = self._get_sdate_edate()
         self.url = f"https://m2mobile.protectedseas.net/api/map/{self.radar_id}/7day/download_weekly_zip"
         self.folder_td = tempfile.TemporaryDirectory()

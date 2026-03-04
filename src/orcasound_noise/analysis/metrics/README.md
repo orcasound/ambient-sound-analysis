@@ -39,7 +39,7 @@ In the ship_metrics.py, the ShipMetricsCalculator allows users to calculate ship
 
 load tracking data. One can skip this part if having M2 data in hand
 ```{python}
-# User will need credential to access M2 data.
+# A user will need credentials to access M2 data.
 from dotenv import load_dotenv
 load_dotenv()
 
