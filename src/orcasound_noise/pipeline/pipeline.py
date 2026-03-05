@@ -71,6 +71,11 @@ class NoiseAnalysisPipeline:
         # Calculate ref for hydrophone with generate_ref()
         self.ref = self.hydrophone.bb_ref
 
+        self.ref_filepath_td = tempfile.TemporaryDirectory()
+        self.ref_filepath = self.ref_filepath_td.name
+        self.file_connector.get_ref_file(hydrophone, self.ref_filepath)
+        self.ref_df = pd.read_parquet(self.ref_filepath)
+
     def cleanup(self):
         """
         Cleanup any internally-created temporary directories.
@@ -89,6 +94,12 @@ class NoiseAnalysisPipeline:
             if self.pqt_folder_td is not None:
                 self.pqt_folder_td.cleanup()
                 self.pqt_folder_td = None
+        except AttributeError:
+            pass
+        try:
+            if self.ref_filepath_td is not None:
+                self.ref_filepath_td.cleanup()
+                self.ref_filepath_td = None
         except AttributeError:
             pass
 
@@ -189,9 +200,15 @@ class NoiseAnalysisPipeline:
             broadband_results = broadband_results[~broadband_results.index.duplicated(keep='last')]
 
             if ref_lvl:
-                broadband_results = broadband_results - self.ref
+               # broadband_results = broadband_results - self.ref
+               broadband_results['date'] = pd.to_datetime(broadband_results.index.date)
+               joined_bb = pd.merge(broadband_results, self.ref_df, on='date')
+               joined_bb['bb'] = joined_bb['bb_o'] - joined_bb['bb_ref']
+               joined_bb['comm_bb'] = joined_bb['comm_bb_o'] - joined_bb['comm_bb_ref']
+               joined_bb['ship_bb'] = joined_bb['ship_bb_o'] - joined_bb['ship_bb_ref']
+               joined_bb.drop(columns=['date', 'bb_ref', 'comm_bb_ref', 'ship_bb_ref'], inplace=True)
 
-            return psd_results, broadband_results
+            return psd_results, joined_bb
 
         elif self.mode == 'safe':
             psd_results = []
@@ -230,9 +247,14 @@ class NoiseAnalysisPipeline:
 
             # Subtracting reference level from broadband
             if ref_lvl:
-                broadband_result = broadband_result - self.ref
+                broadband_results['date'] = pd.to_datetime(broadband_results.index.date)
+                joined_bb = pd.merge(broadband_results, self.ref_df, on='date')
+                joined_bb['bb'] = joined_bb['bb_o'] - joined_bb['bb_ref']
+                joined_bb['comm_bb'] = joined_bb['comm_bb_o'] - joined_bb['comm_bb_ref']
+                joined_bb['ship_bb'] = joined_bb['ship_bb_o'] - joined_bb['ship_bb_ref']
+                joined_bb.drop(columns=['date', 'bb_ref', 'comm_bb_ref', 'ship_bb_ref'], inplace=True)
 
-            return psd_result, broadband_result
+            return psd_result, joined_bb
 
         else:
             raise ValueError("Specify either 'safe' or 'fast' mode")

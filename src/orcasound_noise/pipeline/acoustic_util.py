@@ -222,7 +222,7 @@ def wav_to_array(filepath,
     np.around(broadband, 2, out=broadband)
     np.around(broadband_comm, 2, out=broadband_comm)
     np.around(broadband_ship, 2, out=broadband_ship)
-    bb_dict = {"broadband": broadband, "broadband_comm": broadband_comm, "broadband_ship": broadband_ship}
+    bb_dict = {"bb_o": broadband, "comm_bb_o": broadband_comm, "ship_bb_o": broadband_ship}
     rms_df = pd.DataFrame(bb_dict, index=times)
     # Average over desired time and convert to decibels for the broadband
     rms_df = array_resampler_bands(df=rms_df, delta_t=delta_t, ref=ref)
