@@ -27,13 +27,16 @@ class PartitionedAccessor:
         self.bb_df = (pl.scan_parquet(bb_paths,  storage_options={'aws_region': 'us-west-2'})
                         .filter(pl.col("__index_level_0__").is_between(start_time, end_time)).sort("__index_level_0__"))
     
-    def get_dataframes(self):
+    def get_dataframes(self, lazy: bool = False):
         """
         Retrieves the PSD and broadband noise levels DataFrames for the specified time range.
         Returns:
             tuple: A tuple containing the PSD DataFrame and the broadband noise levels DataFrame for the specified time range.
         """
-        return self.psd_df.collect(), self.bb_df.collect()
+        if lazy:
+            return self.psd_df, self.bb_df
+        else:
+            return self.psd_df.collect(), self.bb_df.collect()
     
     # Currently assuming that data settings are delta_f = 1 and bands = 12 for calculating broadband noise levels, but this may need to be updated if data settings change
     def get_broadband(self, freq_low: int, freq_high: int, ref: float, name: str=None):

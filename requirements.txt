@@ -18,3 +18,4 @@ pytest
 pytest-asyncio
 polars==1.38.0
 pyarrow==23.0.0
+geopandas==1.1.2
