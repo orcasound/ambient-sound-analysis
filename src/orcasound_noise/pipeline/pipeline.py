@@ -11,7 +11,7 @@ import random
 import numpy as np
 import pandas as pd
 from multiprocessing import Pool
-from botocore.exceptions import NoCredentialError
+from botocore.exceptions import NoCredentialsError
 
 # Local imports
 #
@@ -77,7 +77,7 @@ class NoiseAnalysisPipeline:
         try:
             self.file_connector.get_ref_file(hydrophone, self.ref_filepath)
             self.ref_df = pd.read_parquet(self.ref_filepath)
-        except NoCredentialError:
+        except NoCredentialsError:
             logging.warning(f"Could not access reference file for {hydrophone}. Reference level will not be subtracted from broadband.")
             self.ref_df = None
 
