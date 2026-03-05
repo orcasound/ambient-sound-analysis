@@ -201,12 +201,16 @@ class NoiseAnalysisPipeline:
 
             if ref_lvl:
                # broadband_results = broadband_results - self.ref
-               broadband_results['date'] = pd.to_datetime(broadband_results.index.date)
+               broadband_results['date'] = broadband_results.index.date
                joined_bb = pd.merge(broadband_results, self.ref_df, on='date')
+               joined_bb = joined_bb.set_index(broadband_results.index)
                joined_bb['bb'] = joined_bb['bb_o'] - joined_bb['bb_ref']
                joined_bb['comm_bb'] = joined_bb['comm_bb_o'] - joined_bb['comm_bb_ref']
                joined_bb['ship_bb'] = joined_bb['ship_bb_o'] - joined_bb['ship_bb_ref']
                joined_bb.drop(columns=['date', 'bb_ref', 'comm_bb_ref', 'ship_bb_ref'], inplace=True)
+            
+            else:
+                joined_bb = broadband_results
 
             return psd_results, joined_bb
 
@@ -247,12 +251,16 @@ class NoiseAnalysisPipeline:
 
             # Subtracting reference level from broadband
             if ref_lvl:
-                broadband_results['date'] = pd.to_datetime(broadband_results.index.date)
-                joined_bb = pd.merge(broadband_results, self.ref_df, on='date')
+                broadband_result['date'] = broadband_result.index.date
+                joined_bb = pd.merge(broadband_result, self.ref_df, on='date')
+                joined_bb = joined_bb.set_index(broadband_result.index)
                 joined_bb['bb'] = joined_bb['bb_o'] - joined_bb['bb_ref']
                 joined_bb['comm_bb'] = joined_bb['comm_bb_o'] - joined_bb['comm_bb_ref']
                 joined_bb['ship_bb'] = joined_bb['ship_bb_o'] - joined_bb['ship_bb_ref']
                 joined_bb.drop(columns=['date', 'bb_ref', 'comm_bb_ref', 'ship_bb_ref'], inplace=True)
+            
+            else:
+                joined_bb = broadband_result
 
             return psd_result, joined_bb
 
