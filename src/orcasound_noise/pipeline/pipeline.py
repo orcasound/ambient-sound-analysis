@@ -11,6 +11,7 @@ import random
 import numpy as np
 import pandas as pd
 from multiprocessing import Pool
+from botocore.exceptions import NoCredentialError
 
 # Local imports
 #
@@ -73,8 +74,12 @@ class NoiseAnalysisPipeline:
 
         self.ref_filepath_td = tempfile.TemporaryDirectory()
         self.ref_filepath = self.ref_filepath_td.name
-        self.file_connector.get_ref_file(hydrophone, self.ref_filepath)
-        self.ref_df = pd.read_parquet(self.ref_filepath)
+        try:
+            self.file_connector.get_ref_file(hydrophone, self.ref_filepath)
+            self.ref_df = pd.read_parquet(self.ref_filepath)
+        except NoCredentialError:
+            logging.warning(f"Could not access reference file for {hydrophone}. Reference level will not be subtracted from broadband.")
+            self.ref_df = None
 
     def cleanup(self):
         """
@@ -199,7 +204,7 @@ class NoiseAnalysisPipeline:
             psd_results = psd_results[~psd_results.index.duplicated(keep='last')]
             broadband_results = broadband_results[~broadband_results.index.duplicated(keep='last')]
 
-            if ref_lvl:
+            if ref_lvl and self.ref_df is not None:
                # broadband_results = broadband_results - self.ref
                broadband_results['date'] = broadband_results.index.date
                joined_bb = pd.merge(broadband_results, self.ref_df, on='date')
@@ -250,7 +255,7 @@ class NoiseAnalysisPipeline:
             broadband_result = broadband_result[~broadband_result.index.duplicated(keep='last')]
 
             # Subtracting reference level from broadband
-            if ref_lvl:
+            if ref_lvl and self.ref_df is not None:
                 broadband_result['date'] = broadband_result.index.date
                 joined_bb = pd.merge(broadband_result, self.ref_df, on='date')
                 joined_bb = joined_bb.set_index(broadband_result.index)
