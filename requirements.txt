@@ -1,5 +1,5 @@
 m3u8==6.0.0
-orca-hls-utils@git+https://github.com/orcasound/orca-hls-utils.git
+orca-hls-utils@git+https://github.com/orcasound/orca-hls-utils.git@fix_partial_empty_index_error
 matplotlib==3.8.4
 matplotlib-inline==0.2.1
 scipy==1.16.3

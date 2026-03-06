@@ -205,19 +205,24 @@ class NoiseAnalysisPipeline:
             broadband_results = broadband_results[~broadband_results.index.duplicated(keep='last')]
 
             if ref_lvl and self.ref_df is not None:
-               # broadband_results = broadband_results - self.ref
-               broadband_results['date'] = broadband_results.index.date
-               joined_bb = pd.merge(broadband_results, self.ref_df, on='date')
-               joined_bb = joined_bb.set_index(broadband_results.index)
-               joined_bb['bb'] = joined_bb['bb_o'] - joined_bb['bb_ref']
-               joined_bb['comm_bb'] = joined_bb['comm_bb_o'] - joined_bb['comm_bb_ref']
-               joined_bb['ship_bb'] = joined_bb['ship_bb_o'] - joined_bb['ship_bb_ref']
-               joined_bb.drop(columns=['date', 'bb_ref', 'comm_bb_ref', 'ship_bb_ref'], inplace=True)
-            
-            else:
-                joined_bb = broadband_results
+                ref_dict = {
+                    'bb_ref': self.ref_df.set_index('date')['bb_ref'].to_dict(),
+                    'comm_bb_ref': self.ref_df.set_index('date')['comm_bb_ref'].to_dict(),
+                    'ship_bb_ref': self.ref_df.set_index('date')['ship_bb_ref'].to_dict()
+                }
+                broadband_results['dates'] = broadband_results.index.date
+                dates = broadband_results['dates']
+                missing_dates = set(dates) - set(self.ref_df['date'])
 
-            return psd_results, joined_bb
+                if missing_dates:
+                    logging.warning(f"Reference levels missing for the following dates: {missing_dates}. Broadband values returned are not referenced.")
+
+                broadband_results['bb'] = broadband_results['bb_o'] - dates.map(ref_dict['bb_ref']).fillna(0)
+                broadband_results['comm_bb'] = broadband_results['comm_bb_o'] - dates.map(ref_dict['comm_bb_ref']).fillna(0)
+                broadband_results['ship_bb'] = broadband_results['ship_bb_o'] - dates.map(ref_dict['ship_bb_ref']).fillna(0)
+                broadband_results.drop(columns=['dates'], inplace=True, errors='ignore')
+
+            return psd_results, broadband_results
 
         elif self.mode == 'safe':
             psd_results = []
@@ -256,18 +261,24 @@ class NoiseAnalysisPipeline:
 
             # Subtracting reference level from broadband
             if ref_lvl and self.ref_df is not None:
-                broadband_result['date'] = broadband_result.index.date
-                joined_bb = pd.merge(broadband_result, self.ref_df, on='date')
-                joined_bb = joined_bb.set_index(broadband_result.index)
-                joined_bb['bb'] = joined_bb['bb_o'] - joined_bb['bb_ref']
-                joined_bb['comm_bb'] = joined_bb['comm_bb_o'] - joined_bb['comm_bb_ref']
-                joined_bb['ship_bb'] = joined_bb['ship_bb_o'] - joined_bb['ship_bb_ref']
-                joined_bb.drop(columns=['date', 'bb_ref', 'comm_bb_ref', 'ship_bb_ref'], inplace=True)
-            
-            else:
-                joined_bb = broadband_result
+                ref_dict = {
+                    'bb_ref': self.ref_df.set_index('date')['bb_ref'].to_dict(),
+                    'comm_bb_ref': self.ref_df.set_index('date')['comm_bb_ref'].to_dict(),
+                    'ship_bb_ref': self.ref_df.set_index('date')['ship_bb_ref'].to_dict()
+                }
+                broadband_result['dates'] = broadband_result.index.date
+                dates = broadband_result['dates']
+                missing_dates = set(dates) - set(self.ref_df['date'])
 
-            return psd_result, joined_bb
+                if missing_dates:
+                    logging.warning(f"Reference levels missing for the following dates: {missing_dates}. Broadband values returned are not referenced.")
+
+                broadband_result['bb'] = broadband_result['bb_o'] - dates.map(ref_dict['bb_ref']).fillna(0)
+                broadband_result['comm_bb'] = broadband_result['comm_bb_o'] - dates.map(ref_dict['comm_bb_ref']).fillna(0)
+                broadband_result['ship_bb'] = broadband_result['ship_bb_o'] - dates.map(ref_dict['ship_bb_ref']).fillna(0)
+                broadband_result.drop(columns=['dates'], inplace=True, errors='ignore')
+
+            return psd_result, broadband_result
 
         else:
             raise ValueError("Specify either 'safe' or 'fast' mode")
