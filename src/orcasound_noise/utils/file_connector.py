@@ -1,7 +1,6 @@
 import datetime as dt
 import logging
 import subprocess
-from tracemalloc import start
 
 import boto3
 from botocore import UNSIGNED
