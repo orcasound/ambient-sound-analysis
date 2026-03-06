@@ -181,7 +181,7 @@ def wav_to_array(filepath,
     # units of power are amplitude^2, so divide by window power and sample rate to get power spectral density in units of amplitude^2/Hz
     psd = power / (window_power * sr)
     # Convert to decibels
-    spec = librosa.power_to_db(psd, ref=ref, amin=1e-40)
+    spec = librosa.power_to_db(psd, ref=ref, amin=1e-20)
     # End EM 3/2026 edits
     # Save the frequencies and time for Dataframe construction
     freqs = librosa.core.fft_frequencies(sr=sr, n_fft=n_fft)
@@ -190,15 +190,17 @@ def wav_to_array(filepath,
 
     # broadband calculated by integration of PSD
     p_rms = np.sum(psd, axis=0) * delta_f
-    broadband = librosa.power_to_db(p_rms, ref=ref, amin=1e-40)
+    broadband = librosa.power_to_db(p_rms, ref=ref, amin=1e-20)
 
     # Orca communication band 1000-6000Hz
-    p_rms_comm = np.sum(psd[1000:6000,:], axis=0) * delta_f
-    broadband_comm = librosa.power_to_db(p_rms_comm, ref=ref, amin=1e-40)
+    comm_mask = (freqs >= 1000) & (freqs <= 6000)
+    p_rms_comm = np.sum(psd[comm_mask,:], axis=0) * delta_f
+    broadband_comm = librosa.power_to_db(p_rms_comm, ref=ref, amin=1e-20)
 
     # Ship noise band 1-500Hz
-    p_rms_ship = np.sum(psd[1:500,:], axis=0) * delta_f
-    broadband_ship = librosa.power_to_db(p_rms_ship, ref=ref, amin=1e-40)
+    ship_mask = (freqs >= 1) & (freqs <= 500)
+    p_rms_ship = np.sum(psd[ship_mask,:], axis=0) * delta_f
+    broadband_ship = librosa.power_to_db(p_rms_ship, ref=ref, amin=1e-20)
 
     # Create the PSD Dataframe with minimal copies: round in-place on a float64 array
     spec_arr = np.asarray(spec.transpose(), dtype=np.float64)
@@ -214,7 +216,7 @@ def wav_to_array(filepath,
                 "bb": broadband, "comm_bb": broadband_comm, "ship_bb": broadband_ship}
     rms_df = pd.DataFrame(bb_dict, index=times)
     # Average over desired time
-    rms_df = array_resampler_bands(df=rms_df, delta_t=delta_t, ref=ref)
+    rms_df = array_resampler(df=rms_df, delta_t=delta_t, ref=ref)
 
     # Calculate bands if specified
     if bands is not None:
@@ -224,7 +226,7 @@ def wav_to_array(filepath,
         np.around(oct_arr, 2, out=oct_arr)
         oct_df = pd.DataFrame(oct_arr, columns=fm, index=times)
         # Average over desired time
-        oct_df = array_resampler_bands(df=oct_df, delta_t=delta_t, ref=ref, fm=fm)
+        oct_df = array_resampler(df=oct_df, delta_t=delta_t, ref=ref, fm=fm)
         
         return oct_df, rms_df
 
@@ -265,35 +267,10 @@ def array_resampler(df, delta_t=1, ref=1, fm=None):
 
     resampled_df = resampled_df.to_numpy()
     # Convert back to decibels
-    resampled_df = librosa.power_to_db(resampled_df, ref=ref, amin=1e-40)
+    resampled_df = librosa.power_to_db(resampled_df, ref=ref, amin=1e-20)
     # Reconstruct Dataframe
-    resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
+    resampled_df = pd.DataFrame(resampled_df, index=resampledIndex, columns=cols)
 
-    if fm is not None:
-        resampled_df.columns = fm
-
-    return resampled_df
-
-
-def array_resampler_bands(df, delta_t=1, ref=1, fm=None):
-    """
-    This function takes in the data frame for bands or broadband, averages over time frame, and sets column
-    names to center frequencies if octave bands are used.
-
-    Args:
-        df: data frame of spectrogram data
-        delta_t: Int, number of seconds per sample
-        fm: if using octave bands, pass octave band frequencies for dataframe column names
-
-    Returns:
-        resampled_df: data frame of broadband data.
-    """
-    resampled_df = df
-    sample_length = str(delta_t) + 's'
-
-    # Average over given time span
-    resampled_df = resampled_df.resample(sample_length).mean()
-    
     if fm is not None:
         resampled_df.columns = fm
 
@@ -473,7 +450,7 @@ def spec_to_bands(psd, N, delta_f, freqs, ref):
     for row in psd:
         octaves = np.append(octaves, np.array([[band_power(row, g, delta_f) for g in gains]]), axis=0)
 
-    octaves_scaled = librosa.power_to_db(octaves, ref=ref, amin=1e-40)
+    octaves_scaled = librosa.power_to_db(octaves, ref=ref, amin=1e-20)
 
     return octaves_scaled, bands
 
