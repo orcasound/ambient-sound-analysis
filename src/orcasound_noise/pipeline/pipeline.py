@@ -549,9 +549,6 @@ class ShipAnalysisPipeline:
         pl_ais = pl.from_pandas(gdf_ais).lazy()
         pl_radar = pl.from_pandas(gdf_radar).lazy()
 
-        # # cleanup temp files
-        # self.cleanup()
-
         return pl_ais, pl_radar
     
     def get_ship_metrics_parquet(self, lf_radar: pl.LazyFrame, lf_ais: pl.LazyFrame, lf_bb: pl.LazyFrame, 
@@ -584,13 +581,13 @@ class ShipAnalysisPipeline:
 
             return output_file_path
         
-        filename = f'ship_metrics_{self._s_date}_{self._e_date}.parquet'
+        file_name = f'ship_metrics_{self._s_date}_{self._e_date}.parquet'
 
         # Non-partitioned save
-        output_file_path = os.path.join(save_folder, filename)
+        output_file_path = os.path.join(save_folder, file_name)
         pl_ship_metrics.write_parquet(output_file_path)
         if upload_to_s3:
-            s3_connector.upload_partitioned_folder(output_file_path)
+            s3_connector.upload_file(output_file_path, file_name)
 
         return output_file_path
 
@@ -621,6 +618,9 @@ class ShipAnalysisPipeline:
     def end_date(self):
         return self._e_date
 
+    def __enter__(self):
+        return self
+    
     def __exit__(self, exc_type, exc, tb):
         self.cleanup()
         # Do not suppress exceptions.

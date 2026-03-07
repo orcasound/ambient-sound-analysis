@@ -240,7 +240,7 @@ class ShipMetricsS3Connector:
 
         self.bucket = 'audio-orcasound-net'
         self.save_bucket = "acoustic-sandbox"
-        # self.save_folder = "ambient-sound-analysis/temp_ship_metrics/"
+        # will update the once everything is finalized, but for now just save to a test folder
         self.save_folder = "ambient-sound-analysis/ship_metrics/test"
 
         if no_sign:
@@ -254,7 +254,6 @@ class ShipMetricsS3Connector:
             self.source_resource = boto3.resource('s3').Bucket(self.bucket)
             self.archive_resource = boto3.resource('s3').Bucket(self.save_bucket)
 
-        
     def upload_file(self, file, file_name) -> bool:
         """
         Upload a parquet file to the S3 archive
