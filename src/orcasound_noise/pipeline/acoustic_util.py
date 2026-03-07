@@ -1,6 +1,5 @@
 import os
 import datetime
-from weakref import ref
 
 import librosa
 import librosa.display
