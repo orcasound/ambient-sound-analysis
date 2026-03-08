@@ -156,8 +156,7 @@ class S3FileConnector:
             subprocess.run(
                 [
                     "aws", "s3", "sync",
-                    folder_path, f"s3://{self.save_bucket}/{self.save_folder}/",
-                    "--no-overwrite",
+                    folder_path, f"s3://{self.save_bucket}/{self.save_folder}/"
                 ],
                 check=True,
                 capture_output=True,
