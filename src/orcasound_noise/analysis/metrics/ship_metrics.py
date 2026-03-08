@@ -8,6 +8,8 @@ from orcasound_noise.analysis.partitioned_accessor import PartitionedAccessor
 from orcasound_noise.utils import Hydrophone
 from orcasound_noise.pipeline.pipeline import ShipAnalysisPipeline
 
+from dotenv import load_dotenv
+load_dotenv()
 
 class ShipMetricsCalculator:
     def __init__(self, lf_radar: pl.LazyFrame, lf_ais: pl.LazyFrame, lf_bb: pl.LazyFrame):
@@ -391,5 +393,25 @@ class ShipMetricsCalculator:
 #         use_pyarrow=True,
 #         pyarrow_options={"partition_cols": ["year", "month", "day"]}
 #     )  
+
+# Optional: If you have really long strings in your columns, this stops them from being cut off with "..."
+
+def get_ship_metrics_df():
+    s3_path = "s3://acoustic-sandbox/ambient-sound-analysis/temp_ship_metrics/"
     
-   
+    try:
+        lf_metrics = pl.scan_parquet(
+            s3_path,
+            storage_options={
+                "aws_region": "us-west-2"
+            }
+        )
+        
+        df = lf_metrics.collect().to_pandas()
+        return df
+        
+    except Exception as e:
+        print("\n Failed to read from S3.")
+        print(f"Error details: {e}")
+        return None
+    

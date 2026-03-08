@@ -1,0 +1,285 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@500;700;800&display=swap');
+
+:root {
+    /* Colors */
+    --bg-color: #0F172A;       
+    --card-bg: #1E293B;        
+    --info-bg: #334155;        
+    --accent-main: #38BDF8;    
+    --accent-whale: #10B981;   
+    --text-main: #F8FAFC;
+    --text-muted: #94A3B8;
+
+    /* Typography */
+    --font-main: 'Inter', sans-serif;
+    --font-title: 'Montserrat', sans-serif;
+}
+
+/* =========================================
+   1. GLOBALS & TYPOGRAPHY
+   ========================================= */
+body, .taipy-root, .taipy-page, .taipy-bg {
+    background-color: var(--bg-color) !important;
+    color: var(--text-main) !important;
+    font-family: var(--font-main) !important;
+}
+
+.taipy-text { background-color: transparent !important; }
+.page-padding { padding: 2rem 4rem; }
+.center-align-text { text-align: center; }
+.bottom-padding { padding-bottom: 35px; }
+
+h2, h3, h4 {
+    font-family: var(--font-title) !important;
+    margin-top: 0;
+}
+
+/* Hero Section */
+.hero-title {
+    margin-bottom: 2.5rem !important;
+    border-bottom: 1px solid var(--info-bg);
+    padding-bottom: 1rem;
+    color: var(--accent-main) !important;
+}
+.hero-title h2 {
+    font-size: 2.5rem;
+    font-weight: 800 !important;
+    margin: 0 !important;
+}
+
+.secondary-text-color{
+    color: #F7C59F;
+}
+
+.combined-broadband{
+    text-align: center;
+    color: #f7c59f;
+    text-decoration: underline;
+}
+
+.masking-text{
+    font-family: var(--font-title) !important;
+    color: #f7c59f;
+}
+
+.underline{
+    text-decoration: underline;
+}
+
+/* =========================================
+   2. CARDS & WIDGETS
+   ========================================= */
+.card-panel {
+    background-color: var(--card-bg) !important;
+    border-radius: 12px;
+    padding: 28px 36px;
+    border: 1px solid var(--info-bg) !important;
+    margin-bottom: 28px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
+}
+.card-panel h3, .card-panel h4 {
+    font-weight: 700 !important;
+    text-align: center !important;
+    margin-bottom: 1.5rem !important;
+}
+.title-whale h3 { color: var(--accent-whale) !important; }
+.title-whale .taipy-layout { align-items: flex-start !important; }
+
+.card-panel-secondary {
+    background-color: #233047 !important;
+    border-radius: 12px;
+    padding: 28px 36px;
+    border: 1px solid var(--info-bg) !important;
+    margin-bottom: 28px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
+}
+.card-panel-secondary h3, .card-panel-secondary h4 {
+    font-weight: 700 !important;
+    text-align: center !important;
+    margin-bottom: 1.5rem !important;
+}
+
+/* Fixed Info Widget (Now supports inner lists/headers properly) */
+.info-widget {
+    background-color: var(--info-bg) !important;
+    border-left: 4px solid var(--accent-main) !important;
+    border-radius: 6px !important;
+    padding: 1.25rem 1.5rem !important;
+    line-height: 1.6;
+    font-size: 0.95rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important; /* Slightly increased opacity for a better elevated look */
+    display: block !important;
+    color: var(--text-main) !important;
+}
+
+.info-widget h3 {
+    text-align: left !important;
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem !important;
+}
+
+.info-widget ul { 
+    margin: 0; 
+    padding-left: 1.2rem; 
+    padding-top: 1rem;
+}
+
+.info-widget li { 
+    margin-bottom: 6px; 
+}
+
+.info-widget-whale { 
+    border-left-color: var(--accent-whale) !important; 
+}
+/* =========================================
+   3. FORMS, SELECTORS & OVERRIDES
+   ========================================= */
+.form-label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: block;
+}
+.taipy-selector, .taipy-date { max-width: 320px !important; }
+
+.MuiOutlinedInput-root, .taipy-selector .MuiInputBase-root, .MuiPaper-root {
+    background-color: var(--card-bg) !important;
+    color: var(--text-main) !important;
+    border: 1px solid #475569 !important;
+    border-radius: 6px !important;
+}
+.MuiOutlinedInput-notchedOutline { border: none !important; }
+.MuiOutlinedInput-notchedOutline legend { display: none !important; }
+.MuiInputBase-input, .MuiSelect-select, .MuiMenuItem-root {
+    padding: 10px 14px !important;
+    font-size: 0.95rem !important;
+}
+.MuiSvgIcon-root, .taipy-selector svg { color: var(--text-muted) !important; }
+
+/* =========================================
+   4. SCROLLBOX & BOUT DATA
+   ========================================= */
+.scrollable-box {
+    max-height: 380px;
+    overflow-y: auto;
+    padding: 20px;
+    background-color: #1a202c;
+    border-radius: 8px;
+    border: 1px solid #2d3748;
+    box-shadow: inset 0px 4px 12px rgba(0,0,0,0.4);
+}
+.scrollable-box::-webkit-scrollbar { width: 8px; }
+.scrollable-box::-webkit-scrollbar-track { background: transparent; }
+.scrollable-box::-webkit-scrollbar-thumb { background-color: #4a5568; border-radius: 4px; }
+
+.bout-item {
+    background-color: var(--info-bg);
+    border-left: 4px solid var(--accent-whale);
+    border-radius: 6px;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.bout-header {
+    background-color: rgba(0,0,0,0.2);
+    padding: 10px 15px;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.bout-time { color: var(--accent-whale); font-size: 0.9em; }
+.bout-body { padding: 12px 15px; font-size: 0.9rem; }
+.bout-body p { margin: 5px 0; line-height: 1.4; }
+.bout-body b { color: var(--text-muted); }
+
+/* Global Link Styling */
+.bout-media a, .scrollable-box a, .taipy-markdown a {
+    color: var(--accent-main) !important;
+    text-decoration: none !important;
+    font-weight: 600 !important;
+    background-color: rgba(56,189,248,0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+.bout-media a:hover, .scrollable-box a:hover, .taipy-markdown a:hover {
+    background-color: var(--accent-main);
+    color: #FFF !important;
+}
+
+/* =========================================
+   5. LAYOUT FIXES
+   ========================================= */
+.taipy-layout > div { min-width: 0 !important; overflow: hidden; }
+
+.underline-detections{
+    text-decoration: underline;
+    text-decoration-thickness: 3px;
+    text-decoration-color: #10B981;
+    text-underline-offset: 8px;
+}
+
+.underline-psd-date-selector{
+    text-decoration: underline;
+    text-decoration-thickness: 3px;
+    text-decoration-color: #38bdf8;
+    text-underline-offset: 8px;
+}
+
+.underline-combined-graph-title{
+    text-decoration: underline;
+    text-decoration-thickness: 3px;
+    text-decoration-color: #f8fafc;
+    text-underline-offset: 8px;
+}
+
+
+/* =========================================
+   5. SHIP LEADERBOARD STYLING
+   ========================================= */
+.button-row-ship-leaderboard {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+}
+
+.ship-leadboard-metric-buttons {
+    width: auto !important;
+    display: inline-flex !important;
+    justify-content: center;
+    align-items: center;
+    white-space: nowrap;
+    padding: 10px 16px !important;
+    border-radius: 999px !important;
+    border: 1px solid #475569 !important;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.ship-leaderboard-metric-selected {
+    background-color: #38BDF8 !important;
+    color: #0F172A !important;
+    border-color: #38BDF8 !important;
+    font-weight: 700 !important;
+}
+
+.ship-leaderboard-metric-unselected {
+    background-color: #1E293B !important;
+    color: #F8FAFC !important;
+    border-color: #475569 !important;
+    font-weight: 500 !important;
+}
+
+.ship-leadboard-metric-buttons:hover {
+    transform: translateY(-1px);
+}
+
+.ship_leaderboard_card_title_secondary{
+    color: #F7C59F;
+    font-family: var(--font-title) !important;
+}
