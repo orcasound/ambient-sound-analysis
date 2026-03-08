@@ -29,8 +29,9 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     DateRangeHLSStream = None
 from .acoustic_util import wav_to_array
+from ..analysis.metrics.ship_metrics import ShipMetricsCalculator
 from ..utils import Hydrophone
-from ..utils.file_connector import S3FileConnector
+from ..utils.file_connector import S3FileConnector, ShipMetricsS3Connector
 
 
 class NoiseAnalysisPipeline:
@@ -466,10 +467,12 @@ class NoiseAnalysisPipeline:
         return ref
 
 class ShipAnalysisPipeline:
-    def __init__(self) -> None:
+    def __init__(self, pqt_folder: str = None, env_file: str = None, no_auth=False) -> None:
         '''
         Initialize the ShipAnalysisPipeline by setting up necessary parameters and temporary directories.
         '''
+        if env_file:
+            dotenv.load_dotenv(env_file)
         self.m2_token = os.getenv("M2_token")
         if not self.m2_token:
             raise ValueError("M2_token is not set")
@@ -478,8 +481,16 @@ class ShipAnalysisPipeline:
         self.radar_id = 26 # currently hardcoded to orcasound lab radar, can be made dynamic in the future
         self._s_date, self._e_date = self._get_sdate_edate()
         self.url = f"https://m2mobile.protectedseas.net/api/map/{self.radar_id}/7day/download_weekly_zip"
-        self.folder_td = tempfile.TemporaryDirectory()
-        self.folder = self.folder_td.name
+        self.zip_folder_td = tempfile.TemporaryDirectory()
+        self.zip_folder = self.zip_folder_td.name
+        self.s3_connector = ShipMetricsS3Connector(no_sign=no_auth)
+
+        if pqt_folder:
+            self.pqt_folder = pqt_folder
+            self.pqt_folder_td = None
+        else:
+            self.pqt_folder_td = tempfile.TemporaryDirectory()
+            self.pqt_folder = self.pqt_folder_td.name
     
     def _get_sdate_edate(self) -> tuple[dt.date, dt.date]:
         '''
@@ -514,8 +525,8 @@ class ShipAnalysisPipeline:
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Failed to download data from M2 API at {self.url}: {exc}") from exc
        
-        zip_path = f"{self.folder}/{self.start_date}_weekly.zip"
-        output_dir = f"{self.folder}/{self.end_date}_weekly"
+        zip_path = f"{self.zip_folder}/{self.start_date}_weekly.zip"
+        output_dir = f"{self.zip_folder}/{self.end_date}_weekly"
 
         # Save the zip file
         with open(zip_path, "wb") as f:
@@ -539,10 +550,47 @@ class ShipAnalysisPipeline:
         pl_ais = pl.from_pandas(gdf_ais).lazy()
         pl_radar = pl.from_pandas(gdf_radar).lazy()
 
-        # cleanup temp files
-        self.cleanup()
-
         return pl_ais, pl_radar
+    
+    def get_ship_metrics_parquet(self, lf_radar: pl.LazyFrame, lf_ais: pl.LazyFrame, lf_bb: pl.LazyFrame, 
+                                 partitioning: bool = False, upload_to_s3: bool = False, pqt_folder_override=None,
+                                 ) -> str:
+        '''
+        Generate ship metrics parquet file from raw M2 data and broadband sound data.
+        '''
+        # Implementation for generating ship metrics and saving to parquet
+        ship_metrics_cal = ShipMetricsCalculator(lf_radar, lf_ais, lf_bb)
+        pl_ship_metrics = ship_metrics_cal.get_all_ship_metrics()
+
+        
+        # Save file locally or into temp dir
+        save_folder = pqt_folder_override or self.pqt_folder
+        # fetch s3 save folder from hydrophone enum for s3 upload path
+        s3_save_folder = self.s3_connector.save_folder
+    
+        if partitioning:
+            output_file_path = os.path.join(save_folder, s3_save_folder)
+            # Save to parquet with partitioning by year/month/day
+            pl_ship_metrics.write_parquet(
+                output_file_path,
+                use_pyarrow=True,
+                pyarrow_options={"partition_cols": ["year", "month", "day"]}
+                )
+            
+            if upload_to_s3:
+                self.s3_connector.upload_partitioned_folder(output_file_path)
+
+            return output_file_path
+        
+        file_name = f'ship_metrics_{self._s_date}_{self._e_date}.parquet'
+
+        # Non-partitioned save
+        output_file_path = os.path.join(save_folder, file_name)
+        pl_ship_metrics.write_parquet(output_file_path)
+        if upload_to_s3:
+            self.s3_connector.upload_file(output_file_path, file_name)
+
+        return output_file_path
 
     def cleanup(self):
         """
@@ -556,6 +604,13 @@ class ShipAnalysisPipeline:
         except AttributeError:
             pass
 
+        try:
+            if self.pqt_folder_td is not None:
+                self.pqt_folder_td.cleanup()
+                self.pqt_folder_td = None
+        except AttributeError:
+            pass
+
     @property
     def start_date(self):
         return self._s_date
@@ -563,3 +618,17 @@ class ShipAnalysisPipeline:
     @property
     def end_date(self):
         return self._e_date
+
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc, tb):
+        self.cleanup()
+        # Do not suppress exceptions.
+        return False
+
+    def __del__(self):
+        """"
+        Remove Temp Dirs on delete
+        """
+        self.cleanup()
