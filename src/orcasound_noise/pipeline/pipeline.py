@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import polars as pl
 from multiprocessing import Pool
+from botocore.exceptions import NoCredentialsError, ClientError
 
 # Local imports
 #
@@ -79,6 +80,15 @@ class NoiseAnalysisPipeline:
         # Calculate ref for hydrophone with generate_ref()
         self.ref = self.hydrophone.bb_ref
 
+        self.ref_filepath_td = tempfile.TemporaryDirectory()
+        self.ref_filepath = self.ref_filepath_td.name
+        try:
+            self.file_connector.get_ref_file(hydrophone, self.ref_filepath)
+            self.ref_df = pd.read_parquet(self.ref_filepath)
+        except (NoCredentialsError, ClientError) as e:
+            logging.warning(f"Error occured: {e}. Could not access reference file for {hydrophone}. Reference level will not be subtracted from broadband.")
+            self.ref_df = None
+
     def cleanup(self):
         """
         Cleanup any internally-created temporary directories.
@@ -97,6 +107,12 @@ class NoiseAnalysisPipeline:
             if self.pqt_folder_td is not None:
                 self.pqt_folder_td.cleanup()
                 self.pqt_folder_td = None
+        except AttributeError:
+            pass
+        try:
+            if self.ref_filepath_td is not None:
+                self.ref_filepath_td.cleanup()
+                self.ref_filepath_td = None
         except AttributeError:
             pass
 
@@ -196,8 +212,8 @@ class NoiseAnalysisPipeline:
             psd_results = psd_results[~psd_results.index.duplicated(keep='last')]
             broadband_results = broadband_results[~broadband_results.index.duplicated(keep='last')]
 
-            if ref_lvl:
-                broadband_results = broadband_results - self.ref
+            if ref_lvl and self.ref_df is not None:
+                broadband_results = self.apply_ref(broadband_results)
 
             return psd_results, broadband_results
 
@@ -237,8 +253,8 @@ class NoiseAnalysisPipeline:
             broadband_result = broadband_result[~broadband_result.index.duplicated(keep='last')]
 
             # Subtracting reference level from broadband
-            if ref_lvl:
-                broadband_result = broadband_result - self.ref
+            if ref_lvl and self.ref_df is not None:
+                broadband_result = self.apply_ref(broadband_result)
 
             return psd_result, broadband_result
 
@@ -465,6 +481,39 @@ class NoiseAnalysisPipeline:
         ref = np.percentile(bb, 5)
 
         return ref
+
+    def apply_ref(self, df: pd.DataFrame):
+        """
+        Apply reference level to broadband values in a given dataframe. 
+
+        * df: Dataframe with broadband values and a date column
+
+        # Return
+        Dataframe with reference level applied to broadband values.
+        """
+        
+        bb_avg = self.ref_df['bb_ref'].mean()
+        comm_avg = self.ref_df['comm_bb_ref'].mean()
+        ship_avg = self.ref_df['ship_bb_ref'].mean()
+
+        ref_dict = {
+            'bb_ref': self.ref_df.set_index('date')['bb_ref'].to_dict(),
+            'comm_bb_ref': self.ref_df.set_index('date')['comm_bb_ref'].to_dict(),
+            'ship_bb_ref': self.ref_df.set_index('date')['ship_bb_ref'].to_dict()
+        }
+        df['dates'] = df.index.date
+        dates = df['dates']
+        missing_dates = set(dates) - set(self.ref_df['date'])
+
+        if missing_dates:
+            logging.warning(f"Reference levels missing for the following dates: {missing_dates}. Broadband values returned are referenced to average reference value.")
+
+        df['bb'] = df['bb_o'] - dates.map(ref_dict['bb_ref']).fillna(bb_avg)
+        df['comm_bb'] = df['comm_bb_o'] - dates.map(ref_dict['comm_bb_ref']).fillna(comm_avg)
+        df['ship_bb'] = df['ship_bb_o'] - dates.map(ref_dict['ship_bb_ref']).fillna(ship_avg)
+        df.drop(columns=['dates'], inplace=True, errors='ignore')
+
+        return df
 
 class ShipAnalysisPipeline:
     def __init__(self, pqt_folder: str = None, env_file: str = None, no_auth=False) -> None:

@@ -215,6 +215,12 @@ class S3FileConnector:
 
     def download_file(self, filename, location):
             self.client.download_file(self.save_bucket, filename, location)
+    
+    def get_ref_file(self, hydrophone: Hydrophone, location: str):
+        self.client.download_file(self.save_bucket,
+                                    f'{hydrophone.value.save_folder}/ref/hydrophone={hydrophone.value.name}/{hydrophone.value.name}_refs.parquet',
+                                    f'{location}/{hydrophone.value.name}_refs.parquet')
+    
 
 class ShipMetricsS3Connector:
 
