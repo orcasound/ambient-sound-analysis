@@ -1,18 +1,24 @@
+import datetime as dt
 import geopandas as gpd
 import polars as pl
 from shapely.geometry import Point
-from shapely import wkt
 import time
 
+from orcasound_noise.analysis.partitioned_accessor import PartitionedAccessor
+from orcasound_noise.utils import Hydrophone
+from orcasound_noise.pipeline.pipeline import ShipAnalysisPipeline
+
+from dotenv import load_dotenv
+load_dotenv()
 
 class ShipMetricsCalculator:
-    def __init__(self, lf_radar: pl.LazyFrame, lf_ais: pl.LazyFrame, lf_bb: pl.LazyFrame) -> None:
+    def __init__(self, lf_radar: pl.LazyFrame, lf_ais: pl.LazyFrame, lf_bb: pl.LazyFrame):
         """
         Initializes the ShipMetricsCalculator with raw radar, AIS, and sound data.
-        Args:
-            lf_radar: LazyFrame with raw radar track data from M2
-            lf_ais: LazyFrame with raw AIS data from M2
-            lf_bb: LazyFrame with broadband sound data
+
+        lf_radar: LazyFrame with raw radar track data from M2
+        lf_ais: LazyFrame with raw AIS data from M2
+        lf_bb: LazyFrame with broadband sound data
         """
         self.lf_radar = self.get_valid_radar_data(lf_radar)
         self.lf_ais = self.clean_ais_data(lf_ais)
@@ -26,10 +32,8 @@ class ShipMetricsCalculator:
         """
         Processes raw AIS data to create a valid Polars DataFrame
         with timestamps and cleaned MMSI/IMO fields.
-        Args:
-            lf_ais: LazyFrame with raw AIS data
-        Returns:
-            pl.LazyFrame: A cleaned LazyFrame with relevant AIS metadata.
+        
+        lf_ais: LazyFrame with raw AIS data
         """
         return (
             lf_ais
@@ -53,10 +57,8 @@ class ShipMetricsCalculator:
         Processes raw radar data to create a valid Polars DataFrame
         with timestamps and a validity flag based on confidence
         and available association ID.
-        Args:
-            lf_radar: LazyFrame with raw radar data
-        Returns:
-            pl.LazyFrame: A cleaned LazyFrame with valid radar tracks and timestamps.
+
+        lf_radar: LazyFrame with raw radar data
         """
         return (
             lf_radar
@@ -152,25 +154,21 @@ class ShipMetricsCalculator:
         )
             
 
-    def join_ais_metadata(self, lf_radar: pl.LazyFrame, lf_ais: pl.LazyFrame) -> pl.LazyFrame:
+    def join_ais_metadata(self, lf_radar: pl.LazyFrame) -> pl.LazyFrame:
         '''
         Joins AIS metadata to the radar LazyFrame based on the association ID.
-        Args:
-            lf_radar: LazyFrame with radar tracks, must contain 'assoc_id' column
-            lf_ais: LazyFrame with AIS metadata
-        Returns:
-            pl.LazyFrame: A LazyFrame with AIS metadata joined to radar tracks, including a human-readable ship type column.
+
+        lf_radar: LazyFrame with radar tracks, must contain 'assoc_id' column
         '''
         return (
             lf_radar
             .join(
-                lf_ais,
+                self.lf_ais,
                 left_on="assoc_id",
                 right_on="id_track",
                 how="left"
             )
             .with_columns(
-                # Map AIS type_id to human-readable ship type categories
                 self.ship_type_expr().alias("type")
             ).drop(['assoc_id'])
         )
@@ -178,47 +176,46 @@ class ShipMetricsCalculator:
     def add_isolation_flag(self, lf_radar: pl.LazyFrame) -> pl.LazyFrame:
         '''
         Adds an 'is_isolated' boolean column to the radar LazyFrame indicating whether each track is isolated (no overlapping tracks) or not.
-        Args:
-            lf_radar: LazyFrame with radar tracks
-        Returns:
-            pl.LazyFrame: A LazyFrame with an additional 'is_isolated' column indicating whether each track is isolated (no overlapping tracks) or not.
+
+        lf_radar: LazyFrame with radar tracks
         '''
+        # Create a version of the data to check for 'others'
+        others = lf_radar.select(["id_track", "s_timestamp", "l_timestamp"])
+
+        # Use join(how="cross") instead of "left" with on=None
+        overlaps = (
+            lf_radar.join(others, how="cross", suffix="_other")
+            .filter(
+                (pl.col("s_timestamp") <= pl.col("l_timestamp_other")) &
+                (pl.col("l_timestamp") >= pl.col("s_timestamp_other")) &
+                (pl.col("id_track") != pl.col("id_track_other"))
+            )
+            .select("id_track")
+            .unique()
+            .with_columns(is_isolated=pl.lit(False))
+        )
 
         return (
-            lf_radar.sort("s_timestamp")
-            .with_columns([
-                # Get the latest end time seen so far (excluding current row)
-                pl.col("l_timestamp").cum_max().shift(1).alias("prev_max_end"),
-                # Get the earliest start time coming up (excluding current row)
-                pl.col("s_timestamp").shift(-1).alias("next_min_start")
-            ])
+            lf_radar.join(overlaps, on="id_track", how="left")
             .with_columns(
-                is_isolated = (
-                    # No one before me overlaps
-                    (pl.col("prev_max_end").is_null() | (pl.col("s_timestamp") > pl.col("prev_max_end"))) &
-                    # No one after me overlaps
-                    (pl.col("next_min_start").is_null() | (pl.col("l_timestamp") < pl.col("next_min_start")))
-                )
+                pl.col("is_isolated").fill_null(True)
             )
-            .drop(["prev_max_end", "next_min_start"])
         )
 
     def add_acoustic_metrics(self, lf_radar: pl.LazyFrame, lf_sound: pl.LazyFrame, ref_comm_bb: float=0.0, ref_bb: float=0.0) -> pl.LazyFrame:
         """
         Calculates all quantiles for all ships in one lazy operation.
-        Args:
-            lf_radar: LazyFrame with radar tracks
-            lf_sound: LazyFrame with sound data
-            ref_comm: reference community background noise level for LSR calculation # 76.3
-            ref_bb: reference broadband noise level for LSR calculation # 76.6
-        Returns:
-            pl.LazyFrame: A LazyFrame with acoustic metrics (quantiles for broadband noise levels and LSR) aggregated for each ship track.
+
+        lf_radar: LazyFrame with radar tracks
+        lf_sound: LazyFrame with sound data
+        ref_comm: reference community background noise level for LSR calculation # 76.3
+        ref_bb: reference broadband noise level for LSR calculation # 76.6
         """
         
         # Define a helper function to calculate LSR for a given column and reference level
         def lsr(col_name, ref):
             '''
-            Calculates the Listening Space Reduction (LSR) for a given column and reference level using the formula:
+            Calculates the LSR for a given column and reference level using the formula:
             LSR = 100 * (1 - 10^(-2 * (col - ref) / 15))
             '''
             return 100 * (1 - 10 ** (-2 * (pl.col(col_name) - ref) / 15))
@@ -231,10 +228,12 @@ class ShipMetricsCalculator:
             pl.col("l_timestamp") >= pl.col("__index_level_0__")
         )
 
+       
         # 2. Define the aggregations
         quantile_exprs = []
         for col in ["comm_bb", "bb", "ship_bb"]:
             quantile_exprs.extend([
+                pl.col(col).mean().alias(f"{col}_avg"),
                 pl.col(col).quantile(0.05).alias(f"{col}_q05"),
                 pl.col(col).quantile(0.25).alias(f"{col}_q25"),
                 pl.col(col).quantile(0.50).alias(f"{col}_q50"),
@@ -257,21 +256,22 @@ class ShipMetricsCalculator:
             .agg(quantile_exprs)
         )
 
-        # 5. Join back to the original tracks (to keep ships that had no sound data)
+        # 4. Join back to the original tracks (to keep ships that had no sound data)
         return lf_radar.join(acoustic_stats, on="id_track", how="left")
   
     def get_distance_to_hydrophone(self, df: pl.DataFrame, hydrophone_metadata,
                                target_crs="EPSG:32610") -> pl.Series:
         
         """
-        Compute minimum distance between each LineString track and the hydrophone point.
-        Args:
-            df: Polars DataFrame with a 'geometry' column containing WKT LineStrings
-            hydrophone_metadata: dict with 'coordinates' (lon, lat) and 'crs' (CRS info) for the hydrophone location
-            target_crs: CRS to project geometries to for accurate distance calculation (default is UTM zone 10N for PNW, EPSG:32610)
-        Returns:
-            pl.Series: A Polars Series containing the minimum distance in meters from each track to the hydrophone.
+        Compute minimum distance between each LineString track
+
+        and the hydrophone point.
+        df: Polars DataFrame with a 'geometry' column containing WKT LineStrings
+        hydrophone_metadata: dict with 'coordinates' (lon, lat) and 'crs' (CRS info) for the hydrophone location
+        target_crs: CRS to project geometries to for accurate distance calculation (default is UTM zone 10N for PNW, EPSG:32610)
         """
+
+        from shapely import wkt
         
         # Hydrophone point (lon, lat)
         lon, lat = hydrophone_metadata["coordinates"]
@@ -297,8 +297,6 @@ class ShipMetricsCalculator:
     def get_all_ship_metrics(self) -> pl.DataFrame:
         '''
         Main function to calculate all ship metrics by combining radar, AIS, and sound data.
-        returns:
-            pl.DataFrame: A Polars DataFrame containing all calculated ship metrics
         '''
         # 1. Start with valid radar data
         lf_output = self.lf_radar.select([
@@ -308,7 +306,7 @@ class ShipMetricsCalculator:
         ])
 
         # 2. Get AIS Metadata via Join
-        lf_output = self.join_ais_metadata(lf_output, self.lf_ais)
+        lf_output = self.join_ais_metadata(lf_output)
         
         # 3. Calculate Isolation
         lf_output = self.add_isolation_flag(lf_output)
@@ -321,13 +319,99 @@ class ShipMetricsCalculator:
         df_collected = lf_output.collect()
         dist_series = self.get_distance_to_hydrophone(df_collected, self.hydrophone_metadata)
         df_collected = df_collected.with_columns(min_dist = dist_series)
-        
-        # 6. Generate year/month/day columns for partitioning and drop geometry column
-        df_collected = df_collected.with_columns([
-            pl.col("s_timestamp").dt.year().alias("year"),
-            pl.col("s_timestamp").dt.to_string("%m").alias("month"),
-            pl.col("s_timestamp").dt.to_string("%d").alias("day")
-        ])
         df_collected = df_collected.drop("geometry")
 
         return df_collected
+    
+
+# Generate metrics and save to parquet
+
+# if __name__ == "__main__":
+
+#     ship_pipeline = ShipAnalysisPipeline()
+#     print("DataFrames loaded")
+#     s_time = time.time()
+
+#     # For regular weekly data
+#     # lf_ais, lf_radar = ship_pipeline.get_raw_data_from_m2()
+
+#     # For 7 days
+#     # lf_ais = gpd.read_file('data/temp/2026-02-20_weekly/tracks_ais_7Day.shp')
+#     # lf_radar = gpd.read_file('data/temp/2026-02-20_weekly/tracks_radar_7Day.shp')  
+
+#     # For testing with all data in Feb
+#     lf_ais = gpd.read_file('data/ship/M2/26_2026_02/26_2026_02_tracks_ais.shp')
+#     lf_radar = gpd.read_file('data/ship/M2/26_2026_02/26_2026_02_tracks_radar.shp')  
+#     lf_ais["geometry"] = lf_ais.geometry.to_wkt()
+#     lf_radar["geometry"] = lf_radar.geometry.to_wkt()
+#     lf_ais = pl.from_pandas(lf_ais).lazy()
+#     lf_radar = pl.from_pandas(lf_radar).lazy()
+#     e_time = time.time()
+
+#     print(f"Raw data loaded from M2 in {e_time - s_time:.2f} seconds")
+    
+#     print("Sound DataFrames loaded")
+#     s_time = time.time()
+    
+#     # For regular weekly data
+#     # start, end = ship_pipeline.s_date, ship_pipeline.e_date
+#     # start = dt.datetime.combine(start, dt.time.min)
+#     # end = dt.datetime.combine(end, dt.time.max)
+#     # ac_orcalab = PartitionedAccessor(Hydrophone.ORCASOUND_LAB, start, end)
+
+#     # lf_psd, lf_bb = ac_orcalab.get_dataframes(lazy=True)
+
+#     # For testing with all data in Feb
+#     lf_bb = pl.read_parquet('data/sound/broadband/hydrophone=orcasound_lab/year=2026/month=02').lazy()
+#     e_time = time.time()
+#     print(f"DataFrames collected in {e_time - s_time:.2f} seconds")
+
+#     # sample data for testing
+#     lf_bb = lf_bb.with_columns(
+#         bb = pl.col("0"),
+#         comm_bb = pl.lit(1) * pl.col("0"),
+#         ship_bb = pl.lit(1) * pl.col("0")
+#     )
+
+#     print("calculate metrics")
+#     s_time = time.time()
+#     ship_metrics_cal = ShipMetricsCalculator(lf_radar, lf_ais, lf_bb)
+#     pl_ship_metrics = ship_metrics_cal.get_all_ship_metrics()
+#     e_time = time.time()
+#     print(f"Ship metrics calculated in {e_time - s_time:.2f} seconds")
+#     # print(pl_ship_metrics.head())
+
+#     pl_ship_metrics = pl_ship_metrics.with_columns([
+#         pl.col("s_timestamp").dt.year().alias("year"),
+#         pl.col("s_timestamp").dt.to_string("%m").alias("month"),
+#         pl.col("s_timestamp").dt.to_string("%d").alias("day")
+#     ])
+
+#     # saving metrics to parquet with partitioning by year/month/day
+#     pl_ship_metrics.write_parquet(
+#         "data/temp_ship",
+#         use_pyarrow=True,
+#         pyarrow_options={"partition_cols": ["year", "month", "day"]}
+#     )  
+
+# Optional: If you have really long strings in your columns, this stops them from being cut off with "..."
+
+def get_ship_metrics_df():
+    s3_path = "s3://acoustic-sandbox/ambient-sound-analysis/temp_ship_metrics/"
+    
+    try:
+        lf_metrics = pl.scan_parquet(
+            s3_path,
+            storage_options={
+                "aws_region": "us-west-2"
+            }
+        )
+        
+        df = lf_metrics.collect().to_pandas()
+        return df
+        
+    except Exception as e:
+        print("\n Failed to read from S3.")
+        print(f"Error details: {e}")
+        return None
+    
