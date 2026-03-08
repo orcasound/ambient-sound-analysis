@@ -253,22 +253,7 @@ class NoiseAnalysisPipeline:
 
             # Subtracting reference level from broadband
             if ref_lvl and self.ref_df is not None:
-                ref_dict = {
-                    'bb_ref': self.ref_df.set_index('date')['bb_ref'].to_dict(),
-                    'comm_bb_ref': self.ref_df.set_index('date')['comm_bb_ref'].to_dict(),
-                    'ship_bb_ref': self.ref_df.set_index('date')['ship_bb_ref'].to_dict()
-                }
-                broadband_result['dates'] = broadband_result.index.date
-                dates = broadband_result['dates']
-                missing_dates = set(dates) - set(self.ref_df['date'])
-
-                if missing_dates:
-                    logging.warning(f"Reference levels missing for the following dates: {missing_dates}. Broadband values returned are not referenced.")
-
-                broadband_result['bb'] = broadband_result['bb_o'] - dates.map(ref_dict['bb_ref']).fillna(0)
-                broadband_result['comm_bb'] = broadband_result['comm_bb_o'] - dates.map(ref_dict['comm_bb_ref']).fillna(0)
-                broadband_result['ship_bb'] = broadband_result['ship_bb_o'] - dates.map(ref_dict['ship_bb_ref']).fillna(0)
-                broadband_result.drop(columns=['dates'], inplace=True, errors='ignore')
+                broadband_result = self.apply_ref(broadband_result)
 
             return psd_result, broadband_result
 
@@ -495,6 +480,39 @@ class NoiseAnalysisPipeline:
         ref = np.percentile(bb, 5)
 
         return ref
+
+    def apply_ref(self, df: pd.DataFrame):
+        """
+        Apply reference level to broadband values in a given dataframe. 
+
+        * df: Dataframe with broadband values and a date column
+
+        # Return
+        Dataframe with reference level applied to broadband values.
+        """
+        
+        bb_avg = self.ref_df['bb_ref'].mean()
+        comm_avg = self.ref_df['comm_bb_ref'].mean()
+        ship_avg = self.ref_df['ship_bb_ref'].mean()
+
+        ref_dict = {
+            'bb_ref': self.ref_df.set_index('date')['bb_ref'].to_dict(),
+            'comm_bb_ref': self.ref_df.set_index('date')['comm_bb_ref'].to_dict(),
+            'ship_bb_ref': self.ref_df.set_index('date')['ship_bb_ref'].to_dict()
+        }
+        df['dates'] = df.index.date
+        dates = df['dates']
+        missing_dates = set(dates) - set(self.ref_df['date'])
+
+        if missing_dates:
+            logging.warning(f"Reference levels missing for the following dates: {missing_dates}. Broadband values returned are referenced to average reference value.")
+
+        df['bb'] = df['bb_o'] - dates.map(ref_dict['bb_ref']).fillna(bb_avg)
+        df['comm_bb'] = df['comm_bb_o'] - dates.map(ref_dict['comm_bb_ref']).fillna(comm_avg)
+        df['ship_bb'] = df['ship_bb_o'] - dates.map(ref_dict['ship_bb_ref']).fillna(ship_avg)
+        df.drop(columns=['dates'], inplace=True, errors='ignore')
+
+        return df
 
 class ShipAnalysisPipeline:
     def __init__(self) -> None:
