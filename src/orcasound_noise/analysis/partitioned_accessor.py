@@ -6,12 +6,14 @@ from datetime import timedelta
 from ..utils import Hydrophone
 
 class PartitionedAccessor:
-    def __init__(self, hydrophone: Hydrophone, start_time: dt.datetime, end_time: dt.datetime):
+    def __init__(self, hydrophone: Hydrophone, start_time: dt.datetime, end_time: dt.datetime, s3_folder: str = None):
         self.hydrophone = hydrophone
         self.start_time = start_time
         self.end_time = end_time
-
-        s3_loc = f"s3://{hydrophone.value.save_bucket}/{hydrophone.value.save_folder}"
+        if s3_folder:
+            s3_loc = f"s3://{hydrophone.value.save_bucket}/{s3_folder}"
+        else:
+            s3_loc = f"s3://{hydrophone.value.save_bucket}/{hydrophone.value.save_folder}"
         psd_paths = []
         bb_paths = []
         d = start_time.date()
