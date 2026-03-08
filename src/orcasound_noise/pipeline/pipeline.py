@@ -467,7 +467,7 @@ class NoiseAnalysisPipeline:
         return ref
 
 class ShipAnalysisPipeline:
-    def __init__(self, pqt_folder: str = None, env_file: str = None) -> None:
+    def __init__(self, pqt_folder: str = None, env_file: str = None, no_auth=False) -> None:
         '''
         Initialize the ShipAnalysisPipeline by setting up necessary parameters and temporary directories.
         '''
@@ -483,6 +483,7 @@ class ShipAnalysisPipeline:
         self.url = f"https://m2mobile.protectedseas.net/api/map/{self.radar_id}/7day/download_weekly_zip"
         self.zip_folder_td = tempfile.TemporaryDirectory()
         self.zip_folder = self.zip_folder_td.name
+        self.s3_connector = ShipMetricsS3Connector(no_sign=no_auth)
 
         if pqt_folder:
             self.pqt_folder = pqt_folder
@@ -561,11 +562,11 @@ class ShipAnalysisPipeline:
         ship_metrics_cal = ShipMetricsCalculator(lf_radar, lf_ais, lf_bb)
         pl_ship_metrics = ship_metrics_cal.get_all_ship_metrics()
 
-        s3_connector = ShipMetricsS3Connector(env_file='.env')
+        
         # Save file locally or into temp dir
         save_folder = pqt_folder_override or self.pqt_folder
         # fetch s3 save folder from hydrophone enum for s3 upload path
-        s3_save_folder = s3_connector.save_folder
+        s3_save_folder = self.s3_connector.save_folder
     
         if partitioning:
             output_file_path = os.path.join(save_folder, s3_save_folder)
@@ -577,7 +578,7 @@ class ShipAnalysisPipeline:
                 )
             
             if upload_to_s3:
-                s3_connector.upload_partitioned_folder(output_file_path)
+                self.s3_connector.upload_partitioned_folder(output_file_path)
 
             return output_file_path
         
@@ -587,7 +588,7 @@ class ShipAnalysisPipeline:
         output_file_path = os.path.join(save_folder, file_name)
         pl_ship_metrics.write_parquet(output_file_path)
         if upload_to_s3:
-            s3_connector.upload_file(output_file_path, file_name)
+            self.s3_connector.upload_file(output_file_path, file_name)
 
         return output_file_path
 
