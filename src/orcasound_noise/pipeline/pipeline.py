@@ -253,7 +253,22 @@ class NoiseAnalysisPipeline:
 
             # Subtracting reference level from broadband
             if ref_lvl and self.ref_df is not None:
-                broadband_result = self.apply_ref(broadband_result)
+                ref_dict = {
+                    'bb_ref': self.ref_df.set_index('date')['bb_ref'].to_dict(),
+                    'comm_bb_ref': self.ref_df.set_index('date')['comm_bb_ref'].to_dict(),
+                    'ship_bb_ref': self.ref_df.set_index('date')['ship_bb_ref'].to_dict()
+                }
+                broadband_result['dates'] = broadband_result.index.date
+                dates = broadband_result['dates']
+                missing_dates = set(dates) - set(self.ref_df['date'])
+
+                if missing_dates:
+                    logging.warning(f"Reference levels missing for the following dates: {missing_dates}. Broadband values returned are not referenced.")
+
+                broadband_result['bb'] = broadband_result['bb_o'] - dates.map(ref_dict['bb_ref']).fillna(0)
+                broadband_result['comm_bb'] = broadband_result['comm_bb_o'] - dates.map(ref_dict['comm_bb_ref']).fillna(0)
+                broadband_result['ship_bb'] = broadband_result['ship_bb_o'] - dates.map(ref_dict['ship_bb_ref']).fillna(0)
+                broadband_result.drop(columns=['dates'], inplace=True, errors='ignore')
 
             return psd_result, broadband_result
 
