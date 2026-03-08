@@ -1,5 +1,5 @@
 m3u8==6.0.0
-orca-hls-utils@git+https://github.com/orcasound/orca-hls-utils.git
+orca-hls-utils@git+https://github.com/ayushmall0710/orca-hls-utils.git@18e72ed8f81391629ad64462172c56711134c970
 matplotlib==3.8.4
 matplotlib-inline==0.2.1
 scipy==1.16.3
@@ -19,3 +19,4 @@ pytest-asyncio
 polars==1.38.0
 pyarrow==23.0.0
 geopandas==1.1.2
+s3fs
