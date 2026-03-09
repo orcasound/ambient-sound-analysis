@@ -224,11 +224,10 @@ class ShipMetricsCalculator:
             return 100 * (1 - 10 ** (-2 * (pl.col(col_name) - ref) / 15))
         
         # 1. Join sound data to radar tracks based on the time window
-        # Replace "__index_level_0__" with actual sound timestamp column name
         combined = lf_radar.join_where(
             lf_sound,
-            pl.col("s_timestamp") <= pl.col("__index_level_0__"),
-            pl.col("l_timestamp") >= pl.col("__index_level_0__")
+            pl.col("s_timestamp") <= pl.col("ind"),
+            pl.col("l_timestamp") >= pl.col("ind")
         )
 
         # 2. Define the aggregations
