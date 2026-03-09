@@ -25,9 +25,9 @@ class PartitionedAccessor:
             d += timedelta(days=1)
         
         self.psd_df = (pl.scan_parquet(psd_paths,  storage_options={'aws_region': 'us-west-2'})
-                        .filter(pl.col("__index_level_0__").is_between(start_time, end_time)).sort("__index_level_0__"))
+                        .filter(pl.col("ind").is_between(start_time, end_time)).sort("ind"))
         self.bb_df = (pl.scan_parquet(bb_paths,  storage_options={'aws_region': 'us-west-2'})
-                        .filter(pl.col("__index_level_0__").is_between(start_time, end_time)).sort("__index_level_0__"))
+                        .filter(pl.col("ind").is_between(start_time, end_time)).sort("ind"))
     
     def get_dataframes(self, lazy: bool = False):
         """
@@ -65,7 +65,7 @@ class PartitionedAccessor:
             .with_columns([pl.col(col) * 0.577 * int(col) for col in selected_cols])
             # sum the power across the selected frequency bands and convert back to dB re ref Pa
             .with_columns((10 * np.log10(pl.sum_horizontal(selected_cols)/ref**2)).alias(f'{name}' if name else 'calc_bb'))
-            .select(['__index_level_0__', f'{name}' if name else 'calc_bb'])
+            .select(['ind', f'{name}' if name else 'calc_bb'])
         )
 
         return broadband
@@ -81,7 +81,7 @@ def get_quantile_range(start_time: dt.datetime, end_time: dt.datetime, df: pl.La
     Returns:
         pl.DataFrame: A DataFrame containing the broadband noise levels and their corresponding quantiles within the specified time range.
     """
-    df = df.filter(pl.col("__index_level_0__").is_between(start_time, end_time))
+    df = df.filter(pl.col("ind").is_between(start_time, end_time))
     quant_df = df.with_columns(
         (pl.col(col_name)
             .rank(method="average")
@@ -103,7 +103,7 @@ def get_quantiles(start_time: dt.datetime, end_time: dt.datetime, df: pl.LazyFra
     Returns:
         pl.Dataframe: A dataframe containing the 0.05, 0.25, 0.5, 0.75, and 0.95 quantiles for the broadband noise levels within the specified time range.
     """
-    df = df.filter(pl.col("__index_level_0__").is_between(start_time, end_time))
+    df = df.filter(pl.col("ind").is_between(start_time, end_time))
     quantiles = df.select(
         pl.col(col_name).quantile(0.05).alias(f'{name}_q05' if name else 'q05'),
         pl.col(col_name).quantile(0.25).alias(f'{name}_q25' if name else 'q25'),
@@ -140,5 +140,5 @@ def polars_to_pandas(pl_df: pl.DataFrame):
         pd.DataFrame: The converted Pandas DataFrame.
     """
     pd_df = pl_df.to_pandas()
-    pd_df.set_index('__index_level_0__', inplace=True)
+    pd_df.set_index('ind', inplace=True)
     return pd_df

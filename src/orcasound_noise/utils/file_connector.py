@@ -246,8 +246,7 @@ class ShipMetricsS3Connector:
 
         self.bucket = 'audio-orcasound-net'
         self.save_bucket = "acoustic-sandbox"
-        # will update the once everything is finalized, but for now just save to a test folder
-        self.save_folder = "ambient-sound-analysis/ship_metrics/test"
+        self.save_folder = "ambient-sound-analysis/ship_metrics/data"
 
         if no_sign:
             self.client = boto3.client('s3', config=Config(signature_version=UNSIGNED), region_name='us-west-2')
