@@ -70,14 +70,14 @@ class PartitionedAccessor:
 
         return broadband
 
-def get_quantile_range(start_time: dt.datetime, end_time: dt.datetime, df: pl.LazyFrame, col_name: str = '0'):
+def get_quantile_range(start_time: dt.datetime, end_time: dt.datetime, df: pl.LazyFrame, col_name: str = 'bb'):
     """
     Retrieves quantiles for the broadband noise levels within the specified time range.
     Args:
         start_time (dt.datetime): The start time of the time range for which to retrieve quantiles.
         end_time (dt.datetime): The end time of the time range for which to retrieve quantiles.
         df (pl.LazyFrame): A LazyFrame containing broadband noise levels matching the broadband schema.
-        col_name (str): The name of the column containing broadband noise levels to calculate quantiles for. Default is '0'.
+        col_name (str): The name of the column containing broadband noise levels to calculate quantiles for. Default is 'bb'.
     Returns:
         pl.DataFrame: A DataFrame containing the broadband noise levels and their corresponding quantiles within the specified time range.
     """
@@ -91,14 +91,14 @@ def get_quantile_range(start_time: dt.datetime, end_time: dt.datetime, df: pl.La
 
     return quant_df.collect()
     
-def get_quantiles(start_time: dt.datetime, end_time: dt.datetime, df: pl.LazyFrame, col_name: str = '0', name: str=None ):
+def get_quantiles(start_time: dt.datetime, end_time: dt.datetime, df: pl.LazyFrame, col_name: str = 'bb', name: str=None ):
     """
     Retrieves quantiles for the broadband noise levels within the specified time range.
     Args:
         start_time (dt.datetime): The start time of the time range for which to retrieve quantiles.
         end_time (dt.datetime): The end time of the time range for which to retrieve quantiles.
         df (pl.LazyFrame): A LazyFrame containing broadband noise levels matching the broadband schema.
-        col_name (str): The name of the column containing broadband noise levels to calculate quantiles for. Default is '0'.
+        col_name (str): The name of the column containing broadband noise levels to calculate quantiles for. Default is 'bb'.
         name (str): An optional name to prefix the quantile columns. Default is None.
     Returns:
         pl.Dataframe: A dataframe containing the 0.05, 0.25, 0.5, 0.75, and 0.95 quantiles for the broadband noise levels within the specified time range.
@@ -114,13 +114,13 @@ def get_quantiles(start_time: dt.datetime, end_time: dt.datetime, df: pl.LazyFra
 
     return quantiles.collect()
     
-def get_percentage_over_threshold(df: pl.LazyFrame, threshold: float = 120.0, col_name: str = '0'):
+def get_percentage_over_threshold(df: pl.LazyFrame, threshold: float = 120.0, col_name: str = 'bb'):
     """
     Retrieves the percentage of time that broadband noise levels exceed a specified threshold within a given time range.
     Args:
         df (pl.LazyFrame): A LazyFrame containing broadband noise levels matching the broadband schema.
         threshold (float): The noise level threshold in dB. Default is 120.0 dB.
-        col_name (str): The name of the column containing broadband noise levels to calculate the percentage for. Default is '0'.
+        col_name (str): The name of the column containing broadband noise levels to calculate the percentage for. Default is 'bb'.
     Returns:
         pl.DataFrame: A DataFrame containing the percentage of time that broadband noise levels exceed the specified threshold within the given time range.
     """
