@@ -4,7 +4,6 @@ import datetime as dt
 from datetime import timedelta
 
 from ..utils import Hydrophone
-from orcasound_noise.pipeline.acoustic_util import octave_band
 
 class PartitionedAccessor:
     def __init__(self, hydrophone: Hydrophone, start_time: dt.datetime, end_time: dt.datetime, s3_folder: str = None):
