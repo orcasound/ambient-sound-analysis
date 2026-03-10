@@ -542,7 +542,7 @@ class ShipAnalysisPipeline:
     
     def get_sdate_edate(self, lf_radar: pl.LazyFrame, lf_ais: pl.LazyFrame) -> tuple[dt.date, dt.date]:
         '''
-        Get the start and end date for the M2 API request.
+        Get the start and end date in the ship tracking data.
         Args:
             lf_radar: pl.LazyFrame containing radar data with "sdate" and "ldate" columns in string format that can be parsed to datetime.
             lf_ais: pl.LazyFrame containing AIS data with "sdate" and "ldate" columns in string format that can be parsed to datetime.
