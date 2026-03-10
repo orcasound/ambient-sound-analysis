@@ -4,6 +4,7 @@ import datetime as dt
 from datetime import timedelta
 
 from ..utils import Hydrophone
+from orcasound_noise.pipeline.acoustic_util import octave_band
 
 class PartitionedAccessor:
     def __init__(self, hydrophone: Hydrophone, start_time: dt.datetime, end_time: dt.datetime, s3_folder: str = None):
@@ -24,11 +25,56 @@ class PartitionedAccessor:
             bb_paths.append(bb_path)
             d += timedelta(days=1)
         
-        self.psd_df = (pl.scan_parquet(psd_paths,  storage_options={'aws_region': 'us-west-2'})
-                        .filter(pl.col("ind").is_between(start_time, end_time)).sort("ind"))
-        self.bb_df = (pl.scan_parquet(bb_paths,  storage_options={'aws_region': 'us-west-2'})
-                        .filter(pl.col("ind").is_between(start_time, end_time)).sort("ind"))
-    
+        self.psd_schema = self.get_psd_schema()
+        self.bb_schema = {
+                    "ind": pl.Datetime('ns'),
+                    'bb_o': pl.Float64,
+                    'comm_bb_o': pl.Float64,
+                    'ship_bb_o': pl.Float64,
+                    'bb': pl.Float64,
+                    'comm_bb': pl.Float64,
+                    'ship_bb': pl.Float64
+                }
+        
+        self.psd_df = (pl.scan_parquet(
+            psd_paths,  storage_options={'aws_region': 'us-west-2'}, 
+            schema = self.psd_schema
+            ).filter(pl.col("ind").is_between(start_time, end_time)).sort("ind")
+        )
+        
+        self.bb_df = (pl.scan_parquet(
+            bb_paths,  storage_options={'aws_region': 'us-west-2'}, 
+            schema = self.bb_schema
+            ).filter(pl.col("ind").is_between(start_time, end_time)).sort("ind")
+        )
+       
+    def get_psd_schema(self, freqs=None) -> dict:
+        '''
+        Get the schema for the PSD data. 
+        Args:
+            freqs (list, optional): A list of frequencies to include in the schema. If None, the default 1/12-octave 
+            center frequencies from 67 Hz to 22.4 kHz are used.
+        Returns:
+            dict: A dictionary representing the schema for the PSD data.
+        '''
+        if freqs is None:
+            freqs = [
+                67, 71, 75, 80, 85, 90, 95, 100, 106, 112, 118, 125,
+                132, 140, 150, 160, 170, 180, 190, 200, 212, 224, 236, 250,
+                265, 280, 300, 315, 335, 355, 375, 400, 425, 450, 475, 500,
+                530, 560, 600, 630, 670, 710, 750, 800, 850, 900, 950, 1000,
+                1060, 1120, 1180, 1250, 1320, 1400, 1500, 1600, 1700, 1800, 1900, 2000,
+                2120, 2240, 2360, 2500, 2650, 2800, 3000, 3150, 3350, 3550, 3750, 4000,
+                4250, 4500, 4750, 5000, 5300, 5600, 6000, 6300, 6700, 7100, 7500, 8000,
+                8500, 9000, 9500, 10000, 10600, 11200, 11800, 12500, 13200, 14000, 15000, 16000,
+                17000, 18000, 19000, 20000, 21200, 22400
+            ]
+            
+        schema = {"ind": pl.Datetime('ns')}
+        for freq in freqs:
+            schema[str(freq)] = pl.Float64
+        return schema   
+        
     def get_dataframes(self, lazy: bool = False):
         """
         Retrieves the PSD and broadband noise levels DataFrames for the specified time range.
