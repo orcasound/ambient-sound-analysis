@@ -220,6 +220,9 @@ class ShipMetricsCalculator:
             '''
             Calculates the Listening Space Reduction (LSR) for a given column and reference level using the formula:
             LSR = 100 * (1 - 10^(-2 * (col - ref) / 15))
+            
+            Hendricks, Benjamin, et al. "Quantifying vessel noise and acoustic habitat loss in marine soundscapes." Marine Pollution Bulletin 219 (2025): 118150.
+            
             '''
             return 100 * (1 - 10 ** (-2 * (pl.col(col_name) - ref) / 15))
         
