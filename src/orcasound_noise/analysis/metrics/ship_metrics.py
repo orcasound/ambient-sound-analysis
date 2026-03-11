@@ -203,20 +203,18 @@ class ShipMetricsCalculator:
             .drop(["prev_max_end", "next_min_start"])
         )
 
-    def add_acoustic_metrics(self, lf_radar: pl.LazyFrame, lf_sound: pl.LazyFrame, ref_comm_bb: float=0.0, ref_bb: float=0.0) -> pl.LazyFrame:
+    def add_acoustic_metrics(self, lf_radar: pl.LazyFrame, lf_sound: pl.LazyFrame) -> pl.LazyFrame:
         """
         Calculates all quantiles for all ships in one lazy operation.
         Args:
             lf_radar: LazyFrame with radar tracks
             lf_sound: LazyFrame with sound data
-            ref_comm: reference community background noise level for LSR calculation # 76.3
-            ref_bb: reference broadband noise level for LSR calculation # 76.6
         Returns:
             pl.LazyFrame: A LazyFrame with acoustic metrics (quantiles for broadband noise levels and LSR) aggregated for each ship track.
         """
         
         # Define a helper function to calculate LSR for a given column and reference level
-        def lsr(col_name, ref):
+        def lsr(col_name):
             '''
             Calculates the Listening Space Reduction (LSR) for a given column and reference level using the formula:
             LSR = 100 * (1 - 10^(-2 * (col - ref) / 15))
@@ -224,7 +222,10 @@ class ShipMetricsCalculator:
             Hendricks, Benjamin, et al. "Quantifying vessel noise and acoustic habitat loss in marine soundscapes." Marine Pollution Bulletin 219 (2025): 118150.
             
             '''
-            return 100 * (1 - 10 ** (-2 * (pl.col(col_name) - ref) / 15))
+            col_original = f"{col_name}_o"
+            ## ref = oringinal - calibrated
+            ## calibrated - ref = calibrated - (oringinal - calibrated) = 2 * calibrated - original
+            return 100 * (1 - 10 ** (-2 * (2 * pl.col(col_name) - pl.col(col_original)) / 15))
         
         # 1. Join sound data to radar tracks based on the time window
         combined = lf_radar.join_where(
@@ -246,10 +247,12 @@ class ShipMetricsCalculator:
         
         # 3. Calculate LSR for bb and comm_bb
         quantile_exprs.extend([
-            lsr("bb", ref_bb).quantile(0.50).alias("bb_lsr_q50"),
-            lsr("bb", ref_bb).quantile(0.95).alias("bb_lsr_q95"),
-            lsr("comm_bb", ref_comm_bb).quantile(0.50).alias("comm_bb_lsr_q50"),
-            lsr("comm_bb", ref_comm_bb).quantile(0.95).alias("comm_bb_lsr_q95"),
+            lsr("bb").quantile(0.50).alias("bb_lsr_q50"),
+            lsr("bb").quantile(0.95).alias("bb_lsr_q95"),
+            lsr("comm_bb").quantile(0.50).alias("comm_bb_lsr_q50"),
+            lsr("comm_bb").quantile(0.95).alias("comm_bb_lsr_q95"),
+            lsr("ship_bb").quantile(0.50).alias("ship_bb_lsr_q50"),
+            lsr("ship_bb").quantile(0.95).alias("ship_bb_lsr_q95"),
         ])
 
         # 4. Group by the track ID to collapse the sound samples into metrics
