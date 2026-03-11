@@ -70,7 +70,7 @@ $$
 
 take n = 12 for 1/12 octaves and $f_c$ as the center frequency reported in the PSD
 
-$f_{i,low} = \frac {f_c}{2^{1/2n}} $ and $f_{i,high} = f_c * 2^{1/2n} $ 
+$f_{i,low} = \frac{f_c}{2^{1/2n}}$ and $f_{i,high} = f_c * 2^{1/2n} $ 
 
 $\Delta f_i = f_c ( 2^{1/2n} - \frac {1}{2^{1/2n}})$
 
