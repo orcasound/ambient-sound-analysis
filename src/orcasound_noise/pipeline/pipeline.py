@@ -528,7 +528,6 @@ class ShipAnalysisPipeline:
         
         # self.user_id = os.getenv("M2_user_id")
         self.radar_id = 26 # currently hardcoded to orcasound lab radar, can be made dynamic in the future
-        self._s_date, self._e_date = self._get_sdate_edate()
         self.url = f"https://m2mobile.protectedseas.net/api/map/{self.radar_id}/7day/download_weekly_zip"
         self.zip_folder_td = tempfile.TemporaryDirectory()
         self.zip_folder = self.zip_folder_td.name
@@ -541,28 +540,51 @@ class ShipAnalysisPipeline:
             self.pqt_folder_td = tempfile.TemporaryDirectory()
             self.pqt_folder = self.pqt_folder_td.name
     
-    def _get_sdate_edate(self) -> tuple[dt.date, dt.date]:
+    def get_sdate_edate(self, lf_radar: pl.LazyFrame, lf_ais: pl.LazyFrame) -> tuple[dt.date, dt.date]:
         '''
-        Get the start and end date for the M2 API request.
+        Get the start and end date in the ship tracking data.
+        Args:
+            lf_radar: pl.LazyFrame containing radar data with "sdate" and "ldate" columns in string format that can be parsed to datetime.
+            lf_ais: pl.LazyFrame containing AIS data with "sdate" and "ldate" columns in string format that can be parsed to datetime.
         returns:
-            tuple[dt.date, dt.date]: Tuple of (start date, end date) where start date is 8 days ago and 
+            tuple[dt.date, dt.date]: Tuple of (start date, end date)
         '''
-        # get current time
-        curr_date = dt.datetime.now(ZoneInfo("America/Los_Angeles")).date()
-        s_date = curr_date - dt.timedelta(8)
-        e_date = curr_date - dt.timedelta(1)
-        return s_date, e_date
+        # get min and max time
+        radar_s_date, radar_e_date = self.get_date_range(lf_radar)
+        ais_s_date, ais_e_date = self.get_date_range(lf_ais)
 
+        s_date = min(radar_s_date, ais_s_date).date()
+        e_date = max(radar_e_date, ais_e_date).date()
+
+        return s_date, e_date
+    
+    def get_date_range(self, lf: pl.LazyFrame) -> tuple[dt.date, dt.date]:
+        '''
+        Get the start and end date for a given LazyFrame.
+        Args:
+            lf: pl.LazyFrame with "sdate" and "ldate" columns in string format that can be parsed to datetime.
+        returns:
+            tuple[dt.date, dt.date]: Tuple of (start date, end date)
+        '''
+        return (
+            lf.select(
+                pl.col("sdate").str.strptime(pl.Datetime, strict=False).min(),
+                pl.col("ldate").str.strptime(pl.Datetime, strict=False).max(),
+            )
+            .collect()
+            .row(0)
+        )
+    
     def get_raw_data_from_m2(self, return_gdf=False) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame] | tuple[pl.LazyFrame, pl.LazyFrame]:
         """
         Get raw AIS and radar data from M2 API for the past week, unzip the file, and return the resulting track data.
         Args:
-            return_gdf: If True, return the raw data as GeoDataFrames. If False
+            return_gdf: If True, return the raw data as GeoDataFrames. If False, return as Polars LazyFrames.
         returns:
             tuple[gpd.GeoDataFrame, gpd.GeoDataFrame] | tuple[pl.LazyFrame, pl.LazyFrame]: Tuple of (AIS data, Radar data) 
             as either GeoDataFrames or Polars LazyFrames depending on the value of return_gdf.
         """
-
+        
         headers = {   
             "Authorization": self.m2_token,
             "accept": "application/json"
@@ -574,8 +596,8 @@ class ShipAnalysisPipeline:
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Failed to download data from M2 API at {self.url}: {exc}") from exc
        
-        zip_path = f"{self.zip_folder}/{self.start_date}_weekly.zip"
-        output_dir = f"{self.zip_folder}/{self.end_date}_weekly"
+        zip_path = f"{self.zip_folder}/tracks_weekly.zip"
+        output_dir = f"{self.zip_folder}/tracks_weekly"
 
         # Save the zip file
         with open(zip_path, "wb") as f:
@@ -609,9 +631,9 @@ class ShipAnalysisPipeline:
         '''
         # Implementation for generating ship metrics and saving to parquet
         ship_metrics_cal = ShipMetricsCalculator(lf_radar, lf_ais, lf_bb)
+        self.start_date, self.end_date = self.get_sdate_edate(lf_radar, lf_ais)
         pl_ship_metrics = ship_metrics_cal.get_all_ship_metrics()
 
-        
         # Save file locally or into temp dir
         save_folder = pqt_folder_override or self.pqt_folder
         # fetch s3 save folder from hydrophone enum for s3 upload path
@@ -631,7 +653,7 @@ class ShipAnalysisPipeline:
 
             return output_file_path
         
-        file_name = f'ship_metrics_{self._s_date}_{self._e_date}.parquet'
+        file_name = f'ship_metrics_{self.start_date}_{self.end_date}.parquet'
 
         # Non-partitioned save
         output_file_path = os.path.join(save_folder, file_name)
@@ -659,14 +681,6 @@ class ShipAnalysisPipeline:
                 self.pqt_folder_td = None
         except AttributeError:
             pass
-
-    @property
-    def start_date(self):
-        return self._s_date
-
-    @property
-    def end_date(self):
-        return self._e_date
 
     def __enter__(self):
         return self

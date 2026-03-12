@@ -4,16 +4,14 @@ import datetime as dt
 from datetime import timedelta
 
 from ..utils import Hydrophone
+from orcasound_noise.pipeline.acoustic_util import octave_band
 
 class PartitionedAccessor:
-    def __init__(self, hydrophone: Hydrophone, start_time: dt.datetime, end_time: dt.datetime, s3_folder: str = None):
+    def __init__(self, hydrophone: Hydrophone, start_time: dt.datetime, end_time: dt.datetime):
         self.hydrophone = hydrophone
         self.start_time = start_time
         self.end_time = end_time
-        if s3_folder:
-            s3_loc = f"s3://{hydrophone.value.save_bucket}/{s3_folder}"
-        else:
-            s3_loc = f"s3://{hydrophone.value.save_bucket}/{hydrophone.value.save_folder}"
+        s3_loc = f"s3://{hydrophone.value.save_bucket}/{hydrophone.value.save_folder}"
         psd_paths = []
         bb_paths = []
         d = start_time.date()
@@ -24,11 +22,46 @@ class PartitionedAccessor:
             bb_paths.append(bb_path)
             d += timedelta(days=1)
         
-        self.psd_df = (pl.scan_parquet(psd_paths,  storage_options={'aws_region': 'us-west-2'})
-                        .filter(pl.col("ind").is_between(start_time, end_time)).sort("ind"))
-        self.bb_df = (pl.scan_parquet(bb_paths,  storage_options={'aws_region': 'us-west-2'})
-                        .filter(pl.col("ind").is_between(start_time, end_time)).sort("ind"))
-    
+        self.psd_schema = self.get_psd_schema()
+        self.bb_schema = {
+                    "ind": pl.Datetime('ns'),
+                    'bb_o': pl.Float64,
+                    'comm_bb_o': pl.Float64,
+                    'ship_bb_o': pl.Float64,
+                    'bb': pl.Float64,
+                    'comm_bb': pl.Float64,
+                    'ship_bb': pl.Float64
+                }
+        
+        self.psd_df = (pl.scan_parquet(
+            psd_paths,  storage_options={'aws_region': 'us-west-2'}, 
+            schema = self.psd_schema
+            ).filter(pl.col("ind").is_between(start_time, end_time)).sort("ind")
+        )
+        
+        self.bb_df = (pl.scan_parquet(
+            bb_paths,  storage_options={'aws_region': 'us-west-2'}, 
+            schema = self.bb_schema
+            ).filter(pl.col("ind").is_between(start_time, end_time)).sort("ind")
+        )
+       
+    def get_psd_schema(self, freqs=None) -> dict:
+        '''
+        Get the schema for the PSD data. 
+        Args:
+            freqs (list, optional): A list of frequencies to include in the schema. If None, the default 1/12-octave 
+            center frequencies from 67 Hz to 22.4 kHz are used.
+        Returns:
+            dict: A dictionary representing the schema for the PSD data.
+        '''
+        if freqs is None:
+            freqs, _ = octave_band(12, [])
+            
+        schema = {"ind": pl.Datetime('ns')}
+        for freq in freqs:
+            schema[str(freq)] = pl.Float64
+        return schema   
+        
     def get_dataframes(self, lazy: bool = False):
         """
         Retrieves the PSD and broadband noise levels DataFrames for the specified time range.
