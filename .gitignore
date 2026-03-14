@@ -10,3 +10,5 @@ __pycache__/
 .aws-config
 temp.py
 .DS_Store
+Icon?
+Icon[[:cntrl:]]

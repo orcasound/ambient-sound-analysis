@@ -1,49 +1,79 @@
-# Noise Accessor
+# Power Spectral Density Parquet File Retrieval and Analysis Functionality
 
-The accessor is the toolkit used for accessing the stored files. This is done by initializing a NoiseAccessor object for a specific hydrophone, and then requesting a time range and optional time and frequency resolution (or granularity). The accessor scans the generated archive files, loads the correct ones, concatenates the data into a single dataframe, and then trims any data outside of the requested range.
+These modules facilitate the retrieval of parquet files stored on AWS S3 of hydrophone power spectral density and broadband sound level 
+and include functionality to analyze that sound data.
 
-Example:
+## partitioned_accessor
+
+Accessor uses the python polars library to retrieve partitioned parquet files using lazy loading for fast on-demand data retrieval.
+
+Current partition structure: 
+
+*psd/hydrophone=###/year=####/month=##/day=##/*
+*broadband/hydrophone=###/year=####/month=##/day=##/*
+
+### Dependencies
+
+* Requires AWS CLI on PATH, (external install)
+
+### Current analytical metrics 
+
+* Broadband sound level for a given frequency range
+    * use 500-15000 for orca communication band
+    * use >15000 for orca echo location band
+* 0.05, 0.25, 0.75, 0.95 broadband quantiles for a given range
+* Quantile vs Db range of broadband
+
+### Example
 
 ```python
-from src.orcasound_noise.analysis import NoiseAcccessor
+import datetime as dt
+from orcasound_noise.analysis.partitioned_accessor import ParitionedAccessor
+from orcasound_noise.utils import Hydrophone
 
-ac = NoiseAcccessor(Hydrophone.ORCASOUND_LAB)
-df = ac.create_df(dt.datetime(2023, 2, 1), dt.datetime(2023, 2, 2), delta_t=10, delta_f="3oct")
-print(df.shape) # (8638, 26)
+# start and end time for time range of dataset
+start = dt.datetime(2026, 2, 5, 0, 0, 0)
+end = dt.datetime(2026, 2, 6, 0, 0, 0)
+
+pa_orcalab = PartitionedAccessor(Hydrophone.ORCASOUND_LAB, start, end)
+
+# start and end time of a specific ship passage, or other event of interest
+start_ship = dt.datetime(2026, 2, 5, 12, 30, 0)
+end_ship = dt.datetime(2026, 2, 5, 12, 55, 0)
+
+quantiles = pa_orcalab.get_quantiles(start_ship, end_ship)
 ```
 
-where the parameters `delta_t=10` and `delta_f="3oct"` specify computation of 1/3-octave band levels over 10-second time intervals.
+### Overview of Broadband sound level calculation from PSD
 
-# Usage
+Assume broadband $SPL$ is represented as follows:
 
-To initialize a NoiseAccessor object, all that is needed a Hydrophone enum instance. This instance contains all needed connection info.
+$$
+SPL = 10\log\frac{p^2(t)}{p^2_{ref}} 
+$$
 
-## Create a Dataframe
+#### PSD to broadband sound level
 
-The NoiseAccessor object has a create_df method that can be used to generate dataframes of requested ranges. It needs the following arguments:
+$$
+ p^2​= \sum_{k=f_1}^{f_2} PSD(k) \times \Delta f
+$$
 
-- start: datetime object representing start of range
-- end: datetime object representing end of range
-- delta_t: Int, Time interval to find
-- delta_f: Str, Hz frequency to find. Use format '50hz' for linear hz bands or '3oct' for octave bands
-- round_timestamps: Bool, default False. Set to True to round timestamps to the delta_t frequency. Good for when grouping by time.
+Where $PSD(k)$ has units of $Pa^2/Hz$
 
-Currently, only 1 second 3rd octave files (`delta_t=1, delta_f="3oct"`) are periodically generated and available in AWS: anything else must be manually created and uploaded first using the [NoiseAnalysisPipeline](../pipeline/README.md).
+Our PSD data is reported in values of dB re Pa^2/Hz so the values need to be converted back to linear with:
 
-## delta_f
+$$
+PSD(f) = p_{ref}^2 * 10^{PSD(f)_{dB}/10}
+$$
 
-This argument is a string to allow different frequency banding methods. Note that only frequency bands that have been pre-compiled are available to access.
+#### $\Delta f$ given 1/12 octave bands
 
-- To access linear frequency bands, use the "hz" suffix. For example, a "50hz" would return frequency bounds in columns like [0, 50, 100, 150...]
-- To access (fractions of) octave bands, use the "oct" suffix. "3oct" will return the 1/3 octave bands, starting with [63, 80, 100, 125, 160...]
-- To access broadband noise, use the "broadband" suffix. This returns a single column representing the total noise level across all frequencies sensed by the hydrophone recording system.
+take n = 12 for 1/12 octaves and $f_c$ as the center frequency reported in the PSD
 
-## round_timestamps
+$f_{i,low} = \frac{f_c}{2^{1/2n}}$ and $f_{i,high} = f_c * 2^{1/2n} $ 
 
-Due to the nature of Orcasound's source data (see the [orcanode repo](https://github.com/orcasound/orcanode)), timestamps can experience some drift in the nanosecond precision. A dataframe may start with 00:00:00.010 but may end with 00:00:00.020 or a larger gap.
+$\Delta f_i = f_c ( 2^{1/2n} - \frac {1}{2^{1/2n}})$
 
-If you want to do time-based analysis across multiple days, this can cause mis-alignment. To correct, set the _round_timestamps_ argument to true. This will round the timestamps to the delta_t value's precision, dropping nanosecond values. For example, at delta_t=10 and round_timestamps=True, every timestamp will be a multiple of 10 seconds from the minute.
+Then:
 
-_*Warning*_ Rounding is only available when delta_t is a divisor of 60.
-
-# Structure
+$\Delta f_i = 0.0577 * f_c$
