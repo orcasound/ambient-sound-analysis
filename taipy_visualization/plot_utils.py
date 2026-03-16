@@ -130,21 +130,18 @@ def plot_spectrogram(df, title="Orcasound Ambient Sound Analysis", ship_df=None)
             y_top = 10 ** lane_top_log
             y_bottom = 10 ** lane_bottom_log
 
-            # 1. Clean Ship Type
             ship_type_raw = str(ship.get("type", "Unknown")).replace("_", " ").title()
             if ship_type_raw.lower() in ["none", "unknown", "nan", "-"]:
                 ship_type = "Not a Listed Type of Ship"
             else:
                 ship_type = ship_type_raw
 
-            # 2. Format Times natively 
             start_str = actual_entry.strftime("%H:%M")
             end_str = actual_exit.strftime("%H:%M")
             
-            # Platform-safe date formatting (e.g., "4 March")
+            # date formatting (e.g., "4 March")
             date_str = f"{actual_entry.day} {actual_entry.strftime('%B')}"
 
-            # 3. Formatted Metrics with Placeholders
             speed_val = ship.get("avg_speed")
             speed_str = f"{round(speed_val, 1)} kts" if pd.notna(speed_val) else "Not available"
 
@@ -162,7 +159,7 @@ def plot_spectrogram(df, title="Orcasound Ambient Sound Analysis", ship_df=None)
                 f"<b>Comm Band Noise (q50):</b> {comm_str}"
             )
 
-            # Draw the faint red column
+
             fig.add_vrect(
                 x0=plot_entry, x1=plot_exit,
                 fillcolor="rgba(255, 82, 82, 0.08)", 
@@ -172,7 +169,6 @@ def plot_spectrogram(df, title="Orcasound Ambient Sound Analysis", ship_df=None)
                 line_color="rgba(255, 82, 82, 0.3)"
             )
 
-            # Draw the solid block and force the hover tooltip
             fig.add_trace(go.Scatter(
                 x=[plot_entry, plot_entry, plot_exit, plot_exit, plot_entry],
                 y=[y_bottom, y_top, y_top, y_bottom, y_bottom],
@@ -422,149 +418,3 @@ def plot_combined_broadband(df_bb, title="Combined Broadband Metrics"):
 
     return fig
 
-
-
-
-# def create_poster_composite_fig(ship_df, detections, bb_df):
-#     """
-#     Generates a pristine, white-background composite graph for poster export.
-#     Fonts, line weights, and markers are massively scaled up for high-visibility print.
-#     """
-#     fig = make_subplots(
-#         rows=2, cols=1,
-#         shared_xaxes=True,
-#         vertical_spacing=0.04,
-#         row_heights=[0.35, 0.65]
-#     )
-
-#     # --- 1. Top Row: Broadband (Floating, No Shadow) ---
-#     if bb_df is not None and not bb_df.empty and "ind" in bb_df.columns:
-#         x_vals = localize_series_to_pacific(bb_df["ind"])
-#         y_vals = bb_df["bb"] if "bb" in bb_df.columns else bb_df.iloc[:, 1]
-        
-#         y_vals = y_vals.replace(0.0, np.nan)
-#         y_vals = y_vals.where(y_vals >= -10, np.nan)
-
-#         fig.add_trace(
-#             go.Scatter(
-#                 x=x_vals, y=y_vals,
-#                 mode='lines',
-#                 line=dict(color='#8B5CF6', width=4), # Doubled line width for print visibility
-#                 name="Broadband",
-#                 showlegend=False,
-#                 hoverinfo="skip"
-#             ),
-#             row=1, col=1
-#         )
-
-#     # --- 2. Bottom Row: Ships ---
-#     all_categories = []
-#     if ship_df is not None and not ship_df.empty:
-#         df_plot = ship_df.copy()
-        
-#         df_plot["type"] = df_plot.get("type", "Not a Listed Type").fillna("Not a Listed Type")
-#         df_plot = df_plot[~(df_plot["type"] == "-")]
-#         df_plot["type"] = df_plot["type"].astype(str).str.replace("_", " ").str.title()
-        
-#         df_plot["s_timestamp"] = localize_series_to_pacific(df_plot["s_timestamp"])
-#         df_plot["l_timestamp"] = localize_series_to_pacific(df_plot["l_timestamp"])
-
-#         color_map = {
-#             "Not A Listed Type": "#6366f1",
-#             "Cargo": "#10b981",
-#             "Tanker": "#f59e0b",
-#             "Passenger": "#ec4899",
-#             "Tug": "#06b6d4"
-#         }
-#         fallback_palette = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"]
-#         types = sorted(df_plot["type"].unique())
-
-#         for i, t in enumerate(types):
-#             c = color_map.get(t, fallback_palette[i % len(fallback_palette)])
-#             df_t = df_plot[df_plot["type"] == t]
-            
-#             for _, row in df_t.iterrows():
-#                 fig.add_trace(
-#                     go.Scatter(
-#                         x=[row["s_timestamp"], row["l_timestamp"]],
-#                         y=[t, t],
-#                         mode='lines',
-#                         line=dict(color=c, width=32), # Massively thickened the Gantt bars
-#                         showlegend=False,
-#                         hoverinfo="skip"
-#                     ),
-#                     row=2, col=1
-#                 )
-#             fig.add_trace(
-#                 go.Scatter(
-#                     x=[None], y=[None], mode='markers',
-#                     marker=dict(color=c, symbol='square', size=22), # Scaled up legend markers
-#                     name=t
-#                 ),
-#                 row=2, col=1
-#             )
-#             all_categories.append(t)
-
-#     # --- 3. Bottom Row: Whale Detections ---
-#     if detections:
-#         all_categories.append("Whale Detections")
-#         det_times = [parse_source_timestamp(d["timestamp"]) for d in detections]
-#         fig.add_trace(
-#             go.Scatter(
-#                 x=det_times,
-#                 y=["Whale Detections"] * len(det_times),
-#                 mode='markers',
-#                 marker=dict(symbol='diamond', size=26, color='#00E5FF', line=dict(color='black', width=2)), # Giant diamonds
-#                 name="Whale Detections"
-#             ),
-#             row=2, col=1
-#         )
-
-#     # --- 4. Layout & Spacing (POSTER SCALE) ---
-#     fig.update_layout(
-#         template="none",
-#         plot_bgcolor='#FFFFFF',
-#         paper_bgcolor='#FFFFFF',
-        
-#         font=dict(family="'Inter', sans-serif", color="#1e293b", size=20), # Increased base font
-        
-#         title=dict(
-#             text="<b>Composite View: Broadband, Ship Passages, Whale Detections</b>",
-#             font=dict(family="'Montserrat', sans-serif", color="#0f172a", size=38), # Massive title font
-#             x=0.5,
-#             y=0.96
-#         ),
-        
-#         height=850, # Increased total canvas height so thick bars and big text don't overlap
-#         margin=dict(l=40, r=40, t=120, b=120), # Expanded margins
-#         showlegend = False
-#         # legend=dict(font=dict(family="'Inter', sans-serif", color="#1e293b", size=22), orientation="h", yanchor="bottom", y=1.08, xanchor="right", x=1)
-#     )
-
-#     # --- 5. Clean Axes Formatting ---
-#     # TOP ROW: completely invisible
-#     fig.update_xaxes(showgrid=False, zeroline=False, showline=False, showticklabels=False, row=1, col=1)
-#     fig.update_yaxes(showgrid=False, zeroline=False, showline=False, showticklabels=False, title="", row=1, col=1)
-
-#     # BOTTOM ROW: visible axes with dashed grid
-#     fig.update_xaxes(
-#         showgrid=True, gridcolor='rgba(148, 163, 184, 0.3)', griddash='dash',
-#         zeroline=False, showline=True, linecolor='#334155', linewidth=3, 
-#         tickfont=dict(family="'Inter', sans-serif", color='#334155', size=20), # Massive tick labels
-#         title=dict(text=f"Time ({DISPLAY_TZ_NAME})", font=dict(family="'Inter', sans-serif", color="#0f172a", size=26), standoff=30), # Massive axis title
-#         type='date', range=["2026-03-03 00:00:00", "2026-03-09 00:00:00"], 
-#         row=2, col=1
-#     )
-    
-#     if all_categories:
-#         fig.update_yaxes(
-#             showgrid=True, gridcolor='rgba(148, 163, 184, 0.15)', 
-#             zeroline=False, showline=True, linecolor='#334155', linewidth=3, 
-#             tickfont=dict(family="'Inter', sans-serif", color='#334155', size=20), # Massive tick labels
-#             title=dict(text="Vessel Category", font=dict(family="'Inter', sans-serif", color="#0f172a", size=26), standoff=30), # Massive axis title
-#             type='category', categoryorder='array', categoryarray=all_categories[::-1], 
-#             automargin=True, 
-#             row=2, col=1
-#         )
-
-#     return fig

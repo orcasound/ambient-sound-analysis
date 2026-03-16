@@ -33,10 +33,7 @@ from dashboard_utils import (
 )
 
 class HydrophoneProxy:
-    """
-    Acts as a stand-in for the Hydrophone Enum, allowing us to safely 
-    override the save_folder path without modifying read-only library files.
-    """
+
     def __init__(self, base_enum, new_folder):
         class MockValue:
             def __init__(self, val):
@@ -470,7 +467,7 @@ def toggle_ship_overlay(state, var_name, var_value):
 # ----------------------------------- Ship dataframe loading ----------------------------------------- #
 # ---------------------------------------------------------------------------------------------------- #
 
-# Load Global Ship DataFrame
+
 GLOBAL_SHIP_DF = None
 try:
     GLOBAL_SHIP_DF = get_ship_metrics_df()

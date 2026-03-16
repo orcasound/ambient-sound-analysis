@@ -1,7 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@500;700;800&display=swap');
 
 :root {
-    /* Colors */
     --bg-color: #0F172A;       
     --card-bg: #1E293B;        
     --info-bg: #334155;        
@@ -9,8 +8,6 @@
     --accent-whale: #10B981;   
     --text-main: #F8FAFC;
     --text-muted: #94A3B8;
-
-    /* Typography */
     --font-main: 'Inter', sans-serif;
     --font-title: 'Montserrat', sans-serif;
 }
@@ -24,43 +21,54 @@ body, .taipy-root, .taipy-page, .taipy-bg {
     font-family: var(--font-main) !important;
 }
 
-.taipy-text { background-color: transparent !important; }
-.page-padding { padding: 2rem 4rem; }
-.center-align-text { text-align: center; }
-.bottom-padding { padding-bottom: 35px; }
+.taipy-text {
+    background-color: transparent !important;
+}
+
+.page-padding {
+    padding: 2rem 4rem;
+}
+
+.center-align-text {
+    text-align: center;
+}
+
+.bottom-padding {
+    padding-bottom: 35px;
+}
 
 h2, h3, h4 {
     font-family: var(--font-title) !important;
     margin-top: 0;
 }
 
-/* Hero Section */
 .hero-title {
     margin-bottom: 2.5rem !important;
     padding-bottom: 8px;
     color: var(--accent-main) !important;
 }
+
 .hero-title h2 {
     font-size: 2.5rem;
     font-weight: 800 !important;
     margin: 0 !important;
 }
 
-.secondary-text-color{
+.secondary-text-color {
     color: #F7C59F;
 }
 
-.combined-broadband{
+.combined-broadband {
     text-align: center;
     color: #f7c59f;
 }
 
-.masking-text{
+.masking-text {
     font-family: var(--font-title) !important;
     color: #f7c59f;
 }
 
-.underline{
+.underline {
     text-decoration: underline;
 }
 
@@ -75,13 +83,20 @@ h2, h3, h4 {
     margin-bottom: 28px;
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
 }
+
 .card-panel h3, .card-panel h4 {
     font-weight: 700 !important;
     text-align: center !important;
     margin-bottom: 1.5rem !important;
 }
-.title-whale h3 { color: var(--accent-whale) !important; }
-.title-whale .taipy-layout { align-items: flex-start !important; }
+
+.title-whale h3 {
+    color: var(--accent-whale) !important;
+}
+
+.title-whale .taipy-layout {
+    align-items: flex-start !important;
+}
 
 .card-panel-secondary {
     background-color: #233047 !important;
@@ -91,13 +106,13 @@ h2, h3, h4 {
     margin-bottom: 28px;
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
 }
+
 .card-panel-secondary h3, .card-panel-secondary h4 {
     font-weight: 700 !important;
     text-align: center !important;
     margin-bottom: 1.5rem !important;
 }
 
-/* Fixed Info Widget (Now supports inner lists/headers properly) */
 .info-widget {
     background-color: var(--info-bg) !important;
     border-left: 4px solid var(--accent-main) !important;
@@ -141,7 +156,10 @@ h2, h3, h4 {
     margin-bottom: 6px;
     display: block;
 }
-.taipy-selector, .taipy-date { max-width: 320px !important; }
+
+.taipy-selector, .taipy-date {
+    max-width: 320px !important;
+}
 
 .MuiOutlinedInput-root, .taipy-selector .MuiInputBase-root, .MuiPaper-root {
     background-color: var(--card-bg) !important;
@@ -149,32 +167,50 @@ h2, h3, h4 {
     border: 1px solid #475569 !important;
     border-radius: 6px !important;
 }
-.MuiOutlinedInput-notchedOutline { border: none !important; }
-.MuiOutlinedInput-notchedOutline legend { display: none !important; }
+
+.MuiOutlinedInput-notchedOutline {
+    border: none !important;
+}
+
+.MuiOutlinedInput-notchedOutline legend {
+    display: none !important;
+}
+
 .MuiInputBase-input, .MuiSelect-select, .MuiMenuItem-root {
     padding: 10px 14px !important;
     font-size: 0.95rem !important;
 }
-.MuiSvgIcon-root, .taipy-selector svg { color: var(--text-muted) !important; }
+
+.MuiSvgIcon-root, .taipy-selector svg {
+    color: var(--text-muted) !important;
+}
 
 /* =========================================
    4. SCROLLBOX & BOUT DATA
    ========================================= */
-
 div.scrollable-box {
     max-height: 380px !important;
-    overflow-y: auto !important; /* This forces the scrollbar back on! */
+    overflow-y: auto !important;
     overflow-x: hidden !important;
     padding: 20px;
-    background-color: #1E293B; /* Matched to your card-bg color */
+    background-color: #1E293B;
     border-radius: 8px;
-    border: 1px solid #334155; /* Matched to your info-bg border */
+    border: 1px solid #334155;
     box-shadow: inset 0px 4px 12px rgba(0,0,0,0.2);
 }
 
-.scrollable-box::-webkit-scrollbar { width: 8px; }
-.scrollable-box::-webkit-scrollbar-track { background: transparent; }
-.scrollable-box::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 4px; }
+.scrollable-box::-webkit-scrollbar {
+    width: 8px;
+}
+
+.scrollable-box::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollable-box::-webkit-scrollbar-thumb {
+    background-color: #475569;
+    border-radius: 4px;
+}
 
 .bout-item {
     background-color: var(--info-bg);
@@ -183,6 +219,7 @@ div.scrollable-box {
     margin-bottom: 1.2rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
+
 .bout-header {
     background-color: rgba(0,0,0,0.2);
     padding: 10px 15px;
@@ -191,12 +228,26 @@ div.scrollable-box {
     justify-content: space-between;
     border-bottom: 1px solid rgba(255,255,255,0.05);
 }
-.bout-time { color: var(--accent-whale); font-size: 0.9em; }
-.bout-body { padding: 12px 15px; font-size: 0.9rem; }
-.bout-body p { margin: 5px 0; line-height: 1.4; }
-.bout-body b { color: var(--text-muted); }
 
-/* Global Link Styling */
+.bout-time {
+    color: var(--accent-whale);
+    font-size: 0.9em;
+}
+
+.bout-body {
+    padding: 12px 15px;
+    font-size: 0.9rem;
+}
+
+.bout-body p {
+    margin: 5px 0;
+    line-height: 1.4;
+}
+
+.bout-body b {
+    color: var(--text-muted);
+}
+
 .bout-media a, .scrollable-box a, .taipy-markdown a {
     color: var(--accent-main) !important;
     text-decoration: none !important;
@@ -206,6 +257,7 @@ div.scrollable-box {
     border-radius: 4px;
     transition: background-color 0.2s ease;
 }
+
 .bout-media a:hover, .scrollable-box a:hover, .taipy-markdown a:hover {
     background-color: var(--accent-main);
     color: #FFF !important;
@@ -214,22 +266,17 @@ div.scrollable-box {
 /* =========================================
    5. LAYOUT FIXES
    ========================================= */
-
 .taipy-layout > div { 
     min-width: 0 !important; 
     overflow: visible !important; 
 }
 
-
-.taipy-layout > div.scrollable-box,
-.scrollable-box {
+.taipy-layout > div.scrollable-box, .scrollable-box {
     overflow-y: auto !important;
     overflow-x: hidden !important;
     max-height: 420px !important;
     display: block !important;
 }
-
-
 
 /* =========================================
    6. SHIP LEADERBOARD STYLING
@@ -241,11 +288,9 @@ div.scrollable-box {
     gap: 12px;
     justify-content: center;
     align-items: center;
-    /* Added significant padding below the buttons to create breathing room */
     padding: 10px 0 40px 0; 
 }
 
-/* Base style applied to all metric buttons */
 .ship-leadboard-metric-buttons {
     border-radius: 8px !important;
     box-sizing: border-box;
@@ -264,29 +309,26 @@ div.scrollable-box {
     touch-action: manipulation;
 }
 
-/* Unselected State: Exact card color, raised via subtle borders and light shadow */
 .ship-leaderboard-metric-unselected {
-    background-color: #1E293B !important; /* Matches your card panel */
-    color: #F8FAFC !important; /* White text as requested */
-    border: 1px solid #334155 !important; /* Subtle outline */
-    border-bottom: 2px solid #0F172A !important; /* Thicker dark bottom border creates the 3D pop */
+    background-color: #1E293B !important;
+    color: #F8FAFC !important;
+    border: 1px solid #334155 !important;
+    border-bottom: 2px solid #0F172A !important;
     box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
 
-/* Hover: Slightly brightens and lifts up */
 .ship-leaderboard-metric-unselected:hover {
     background-color: #233047 !important;
     transform: translateY(-1px);
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3) !important;
 }
 
-/* Selected State: Pushed into the screen with an inner shadow and accent border */
 .ship-leaderboard-metric-selected {
-    background-color: #0F172A !important; /* Darker than the card to look depressed */
-    color: #38BDF8 !important; /* Accent blue text to show it is active */
-    border: 1px solid #38BDF8 !important; /* Accent blue border */
-    box-shadow: inset 0px 3px 5px rgba(0, 0, 0, 0.5) !important; /* Shadows on the inside */
-    transform: translateY(1px); /* Physically moves down */
+    background-color: #0F172A !important;
+    color: #38BDF8 !important;
+    border: 1px solid #38BDF8 !important;
+    box-shadow: inset 0px 3px 5px rgba(0, 0, 0, 0.5) !important;
+    transform: translateY(1px);
 }
 
 .ship_leaderboard_card_title_secondary {
@@ -294,7 +336,6 @@ div.scrollable-box {
     font-family: var(--font-title) !important;
 }
 
-/* Make the buttons wrap neatly instead of forming one rigid line */
 .metric-chip-selector .MuiToggleButtonGroup-root {
     display: flex !important;
     flex-wrap: wrap !important;
@@ -303,36 +344,30 @@ div.scrollable-box {
     box-shadow: none !important;
 }
 
-/* Style the individual unselected chips */
 .metric-chip-selector .MuiToggleButton-root {
     border: 1px solid #334155 !important;
     border-radius: 8px !important;
     color: #94A3B8 !important;
-    font-family: var(--font-main) !important; /* Forces your Inter font */
+    font-family: var(--font-main) !important;
     font-size: 0.85rem !important;
     font-weight: 500 !important;
-    text-transform: none !important; /* Removes default ALL-CAPS */
+    text-transform: none !important;
     padding: 6px 14px !important;
     background-color: #1E293B !important;
     transition: all 0.2s ease !important;
 }
 
-/* Add a slight hover effect */
 .metric-chip-selector .MuiToggleButton-root:hover {
     background-color: #233047 !important;
     color: #F8FAFC !important;
 }
 
-/* Style the selected chips (depressed with blue accent) */
 .metric-chip-selector .MuiToggleButton-root.Mui-selected {
     background-color: #0F172A !important;
     color: #38BDF8 !important;
     border-color: #38BDF8 !important;
     font-weight: 600 !important;
 }
-
-
-
 
 /* =========================================
    7. SLEEK TOGGLE BUTTON STYLING
@@ -344,7 +379,6 @@ div.scrollable-box {
     margin-bottom: 10px;
 }
 
-/* Shrink the overall height and add a subtle background */
 .sleek-toggle .MuiToggleButtonGroup-root {
     height: 32px; 
     background-color: rgba(255, 255, 255, 0.03);
@@ -352,25 +386,22 @@ div.scrollable-box {
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
 }
 
-/* Style the individual buttons to be small and professional */
 .sleek-toggle .MuiToggleButton-root {
     font-family: inherit !important;
     font-size: 0.8rem !important; 
-    text-transform: none !important; /* Removes the bulky ALL-CAPS default */
+    text-transform: none !important;
     padding: 4px 16px !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    color: #8B9BB4 !important; /* Muted text for unselected state */
+    color: #8B9BB4 !important;
     transition: all 0.2s ease-in-out;
 }
 
-/* Style the active/selected state */
 .sleek-toggle .MuiToggleButton-root.Mui-selected {
-    background-color: #00E5FF !important; /* Bright Cyan to match your theme */
-    color: #0F172A !important; /* Dark text for contrast */
+    background-color: #00E5FF !important;
+    color: #0F172A !important;
     font-weight: 600 !important;
 }
 
-/* Optional hover effect */
 .sleek-toggle .MuiToggleButton-root:hover:not(.Mui-selected) {
     background-color: rgba(255, 255, 255, 0.08) !important;
     color: #E2E8F0 !important;
@@ -379,13 +410,10 @@ div.scrollable-box {
 /* =========================================
    8. TOOLTIP & TITLE LAYOUT
    ========================================= */
-
-/* Vertically center items in the Taipy layout */
 .align-columns-center {
     align-items: center;
 }
 
-/* Align the tooltip container to the far right of its column */
 .right-align-text {
     text-align: right;
     display: flex;
@@ -400,16 +428,14 @@ div.scrollable-box {
     margin-bottom: 0 !important;
 }
 
-/* --- ICON SIZING --- */
 .info-tooltip-container {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
-    width: 100%; /* Ensures it anchors to the right edge of the col 1 block */
+    width: 100%;
 }
 
-/* Lock the wrapper to exactly 24px */
 .info-icon {
     display: inline-flex;
     align-items: center;
@@ -419,7 +445,6 @@ div.scrollable-box {
     margin: 0 !important;
 }
 
-/* Lock the image inside to exactly 24px */
 .info-icon img {
     width: 24px !important;
     height: 24px !important;
@@ -435,14 +460,13 @@ div.scrollable-box {
     opacity: 1;
 }
 
-/* --- RIGHT-ANCHORED MODAL BOX --- */
 .info-tooltip-content {
     visibility: hidden;
     opacity: 0;
     position: absolute;
     z-index: 9999;
     top: 100%; 
-    right: 0; /* Anchor securely to the right edge */
+    right: 0;
     transform: translateY(10px); 
     width: max-content;
     max-width: 340px; 
@@ -455,19 +479,17 @@ div.scrollable-box {
     text-align: left;
 }
 
-/* Show the modal when hovering */
 .info-tooltip-container:hover .info-tooltip-content {
     visibility: visible;
     opacity: 1;
-    transform: translateY(15px); /* Slide down effect */
+    transform: translateY(15px);
 }
 
-/* Move the triangle pointer to the right side of the box */
 .info-tooltip-content::before {
     content: "";
     position: absolute;
     bottom: 100%; 
-    right: 4px; /* Aligns pointer directly above the icon */
+    right: 4px;
     border-width: 8px;
     border-style: solid;
     border-color: transparent transparent #1E293B transparent;
@@ -484,7 +506,6 @@ div.scrollable-box {
     z-index: -1;
 }
 
-/* Modal Typography */
 .tooltip-heading {
     color: #00E5FF; 
     margin-bottom: 6px !important;
@@ -510,72 +531,11 @@ div.scrollable-box {
 
 /* =========================================
    9. PLOTLY FONT OVERRIDE
-   Forces all Plotly SVG text nodes to use the custom web font
    ========================================= */
 .js-plotly-plot .plotly text {
     font-family: var(--font-main) !important;
 }
 
-/* Ensure the hover tooltips also pick up the font */
 .js-plotly-plot .hovertext text {
     font-family: var(--font-main) !important;
 }
-
-/* =========================================
-   10. POSTER EXPORT (WHITE MODE) OVERRIDES
-   ========================================= */
-.white-poster-container {
-    background-color: #FFFFFF !important;
-    padding: 30px;
-    border-radius: 8px;
-    border: 1px solid #CCCCCC;
-    margin: 40px 0;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
-
-.white-poster-container h2 {
-    color: #000000 !important;
-    font-family: Arial, sans-serif !important;
-    font-weight: 700;
-    border-bottom: 2px solid #EEEEEE;
-    padding-bottom: 10px;
-}
-
-/* 1. Force the main SVG containers to be purely white */
-.white-poster-container .js-plotly-plot,
-.white-poster-container .js-plotly-plot .svg-container,
-.white-poster-container svg.main-svg {
-    background-color: #FFFFFF !important;
-}
-
-/* 2. Kill the dark mode rects that Taipy injects behind the axes */
-.white-poster-container .js-plotly-plot .bg,
-.white-poster-container .js-plotly-plot .plot-bg,
-.white-poster-container .js-plotly-plot .bglayer > rect {
-    fill: #FFFFFF !important;
-    stroke: #FFFFFF !important;
-}
-
-/* 3. Force all text elements (Axis ticks, Titles, Legend) to be Black */
-.white-poster-container .js-plotly-plot text,
-.white-poster-container .js-plotly-plot .xtick text,
-.white-poster-container .js-plotly-plot .ytick text,
-.white-poster-container .js-plotly-plot .g-gtitle text,
-.white-poster-container .js-plotly-plot .g-xtitle text,
-.white-poster-container .js-plotly-plot .g-ytitle text,
-.white-poster-container .js-plotly-plot .legendtext {
-    fill: #000000 !important;
-}
-
-/* 4. Fix Gridlines (Light Gray) */
-.white-poster-container .js-plotly-plot .xgrid,
-.white-poster-container .js-plotly-plot .ygrid {
-    stroke: #E5E7EB !important;
-}
-
-/* 5. Fix Axis borders (Solid Black) */
-.white-poster-container .js-plotly-plot .zl,
-.white-poster-container .js-plotly-plot .crisp {
-    stroke: #000000 !important;
-}
-

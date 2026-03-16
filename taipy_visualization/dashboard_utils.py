@@ -1,250 +1,3 @@
-# from datetime import datetime, date, timedelta
-# from zoneinfo import ZoneInfo
-# import pandas as pd
-# import plotly.graph_objects as go
-
-
-# UTC_TZ = ZoneInfo("UTC")
-
-
-
-# def get_true_date(val):
-#     """
-#     Adjusts Taipy date objects to account for local/UTC parsing differences, ensuring the correct intended day is extracted.
-#     """
-#     if isinstance(val, datetime):
-#         return (val + timedelta(hours=12)).date()
-#     elif isinstance(val, date):
-#         return val
-#     return val
-
-
-
-
-# def sanitize_taipy_date(dt_val):
-#     """
-#     Converts potentially buggy frontend datetimes to safe, accurate UTC date objects to prevent "jump to previous day" UI errors.
-#     """
-#     if isinstance(dt_val, datetime):
-#         if dt_val.tzinfo is not None:
-#             return dt_val.astimezone(UTC_TZ).date()
-#         return dt_val.date()
-#     elif isinstance(dt_val, date):
-#         return dt_val
-#     return None
-
-
-
-
-# def parse_detections_to_markdown(detections_list, display_tz=UTC_TZ):
-#     """
-#     Takes raw JSON detection data for whale calls and formats it into a clean, readable Markdown list for the dashboard.
-#     """
-#     if not detections_list:
-#         return "_No confirmed whale calls found for this period._"
-
-#     md_content = f"**Confirmed Detections ({len(detections_list)})**\n\n"
-
-#     for i, d in enumerate(detections_list, 1):
-#         raw_time = pd.Timestamp(d["timestamp"])
-#         d_time = raw_time.tz_convert(display_tz).strftime("%H:%M:%S %Z on %d %b")
-        
-#         confidence = round(d.get("confidence", 0), 2)
-#         comments = d.get("comments", "") or "No comments"
-#         location = d.get("location", {}).get("name", "Unknown Location")
-        
-#         audio_url = d.get("audioUri", "")
-#         spec_url = d.get("spectrogramUri", "")
-        
-#         audio_link = f"[Listen to Audio]({audio_url})" if audio_url else ""
-#         spec_link = f"[Download Spectrogram]({spec_url})" if spec_url else ""
-#         media_links = " | ".join(filter(None, [audio_link, spec_link])) or "No media"
-
-#         md_content += f"* **Detection {i}** - {d_time}\n"
-#         md_content += f"  * **Location:** {location}\n"
-#         md_content += f"  * **AI Confidence:** {confidence}%\n"
-#         md_content += f"  * **Media:** {media_links}\n\n"
-#         md_content += "---\n\n"
-
-#     return md_content
-
-
-
-
-# def generate_ship_summary_df(ship_df):
-#     """
-#     Groups raw ship tracking data by vessel type to calculate aggregated metrics like average speed and passage duration.
-#     """
-#     if ship_df is None or ship_df.empty:
-#         return pd.DataFrame(columns=["Type of Ship", "Number of Observations", "Avg Length of Passage", "Avg Speed"])
-
-#     df = ship_df.copy()
-#     if 'type' not in df.columns:
-#         df['type'] = 'Not a Listed Type'
-#     else:
-#         df['type'] = df['type'].fillna('Not a Listed Type')
-#         df['type'] = df['type'].replace(['Unknown Vessel', 'unknown'], 'Not a Listed Type')
-
-#     df = df[~(df['type'] == '-')]
-
-#     summary = df.groupby('type').agg(
-#         count=('id_track', 'count'),
-#         avg_duration=('duration', 'mean'), 
-#         avg_speed=('avg_speed', 'mean') 
-#     ).reset_index()
-
-#     summary = summary.sort_values(by='count', ascending=False)
-
-#     def format_type(t):
-#         if t == 'Not a Listed Type':
-#             return t
-#         return str(t).replace('_', ' ').title()
-
-#     # Formats the ship type names, converts the average duration into rounded minutes (appending "mins"), 
-#     # and rounds the average speed (appending "knots"), while safely handling any missing data.
-
-#     summary['type'] = summary['type'].apply(format_type)
-#     summary['avg_duration'] = summary['avg_duration'].apply(lambda x: f"{round(x / 60, 1)} mins" if pd.notna(x) else "0 mins")
-#     summary['avg_speed'] = summary['avg_speed'].apply(lambda x: f"{round(x, 2)} knots" if pd.notna(x) else "0 knots")
-
-#     summary = summary.rename(columns={
-#         'type': 'Type of Ship',
-#         'count': 'Number of Observations',
-#         'avg_duration': 'Avg Length of Passage',
-#         'avg_speed': 'Avg Speed'
-#     })
-    
-#     return summary
-
-
-
-# def make_empty_figure(message):
-#     """
-#     Creates a blank Plotly graph with a custom text message, used as a placeholder when no data is available.
-#     """
-#     fig = go.Figure()
-#     fig.add_annotation(
-#         text=message,
-#         showarrow=False,
-#         x=0.5,
-#         y=0.5,
-#         xref="paper",
-#         yref="paper",
-#         font=dict(size=16)
-#     )
-#     fig.update_layout(
-#         height=520,
-#         xaxis=dict(visible=False),
-#         yaxis=dict(visible=False),
-#         paper_bgcolor="rgba(0,0,0,0)",
-#         plot_bgcolor="rgba(0,0,0,0)"
-#     )
-#     return fig
-
-
-
-# def reset_acoustic_figures(state, message="No data available"):
-#     """
-#     A quick helper to clear out the spectrogram and broadband charts in the UI state and replace them with empty placeholders.
-#     """
-#     state.spectrogram_fig = make_empty_figure(message)
-#     state.combined_bb_fig = make_empty_figure(message)
-
-
-
-# def _normalize_utc_timestamp(ts):
-#     """
-#     Ensures a given pandas timestamp is strictly localized or converted to the UTC timezone.
-#     """
-#     ts = pd.Timestamp(ts)
-#     if ts.tzinfo is None:
-#         return ts.tz_localize("UTC")
-#     return ts.tz_convert("UTC")
-
-
-
-# def build_ship_psd_window(start_time, end_time):
-#     """
-#     Calculates the exact top-of-the-hour start and end boundaries needed to fetch acoustic PSD data for a specific ship's passage.
-#     """
-#     start_ts = _normalize_utc_timestamp(start_time)
-#     end_ts = _normalize_utc_timestamp(end_time)
-
-#     window_start = start_ts.floor("h")
-#     window_end = end_ts.ceil("h")
-
-#     if window_end <= window_start:
-#         window_end = window_start + pd.Timedelta(hours=1)
-
-#     return window_start, window_end
-
-
-
-
-# def extract_ship_id_from_table_payload(state, payload):
-#     """
-#     Uses the Taipy table click payload to retrieve the unique id_track of the clicked row.
-#     """
-#     payload = payload or {}
-
-#     for key in ("row", "data", "value"):
-#         row_obj = payload.get(key)
-#         if isinstance(row_obj, dict) and row_obj.get("id_track") is not None:
-#             return str(row_obj["id_track"])
-
-#     row_index = payload.get("index")
-#     if row_index is not None and not state.display_leaderboard_df.empty:
-#         working_df = state.display_leaderboard_df.reset_index(drop=True)
-#         if 0 <= row_index < len(working_df):
-#             return str(working_df.iloc[row_index]["id_track"])
-
-#     return None
-
-
-
-
-# def calculate_masking_percentage(start_dt, end_dt, ship_df):
-#     """
-#     Computes the percentage of a given time window that is "masked" by overlapping ship noise.
-#     """
-#     if ship_df is None or ship_df.empty:
-#         return 0.0
-
-#     total_window_seconds = (end_dt - start_dt).total_seconds()
-#     if total_window_seconds <= 0:
-#         return 0.0
-
-#     df = ship_df.copy()
-#     df['s_timestamp'] = df['s_timestamp'].clip(lower=start_dt)
-#     df['l_timestamp'] = df['l_timestamp'].clip(upper=end_dt)
-    
-#     df = df[df['s_timestamp'] < df['l_timestamp']].copy()
-
-#     if df.empty:
-#         return 0.0
-
-#     df = df.sort_values('s_timestamp')
-
-#     merged_intervals = []
-#     current_start = df.iloc[0]['s_timestamp']
-#     current_end = df.iloc[0]['l_timestamp']
-
-#     for _, row in df.iloc[1:].iterrows():
-#         if row['s_timestamp'] <= current_end:
-#             current_end = max(current_end, row['l_timestamp'])
-#         else:
-#             merged_intervals.append((current_start, current_end))
-#             current_start = row['s_timestamp']
-#             current_end = row['l_timestamp']
-    
-#     merged_intervals.append((current_start, current_end))
-
-#     total_masked_seconds = sum((end - start).total_seconds() for start, end in merged_intervals)
-
-#     return round((total_masked_seconds / total_window_seconds) * 100.0, 2)
-
-
-
 from datetime import datetime, date, timedelta
 import pandas as pd
 
@@ -254,24 +7,30 @@ import plotly.graph_objects as go
 DISPLAY_TZ_NAME = "PST"
 
 def get_true_date(val):
-    """
-    Returns the true calendar date. The previous +12 hour timezone hack 
-    is removed since we are no longer fighting UTC offsets.
-    """
+
     if isinstance(val, datetime):
         return val.date()
     return val
 
+
+
+
+
 def sanitize_taipy_date(dt_val):
+    
     if isinstance(dt_val, datetime):
         return dt_val.date()
     return dt_val
 
+
+
+
+
+
+
+
 def parse_source_timestamp(ts):
-    """
-    Forces all timestamps to be timezone-naive, assuming they are in PST
-    to natively match the S3 data partitioning structure.
-    """
+
     ts = pd.Timestamp(ts)
     if pd.isna(ts):
         return pd.NaT
@@ -279,11 +38,16 @@ def parse_source_timestamp(ts):
     # Strip any attached timezone info to keep it purely naive (PST)
     return ts.tz_localize(None)
 
+
+
+
+
+
+
+
+
 def localize_series_to_pacific(values):
-    """
-    Renamed conceptually: simply returns timezone-naive datetimes 
-    since the global context is now strictly PST.
-    """
+
     parsed = pd.to_datetime(values, errors="coerce")
     
     if isinstance(parsed, pd.Series):
@@ -291,6 +55,14 @@ def localize_series_to_pacific(values):
         
     idx = pd.DatetimeIndex(parsed)
     return idx.tz_localize(None)
+
+
+
+
+
+
+
+
 
 def parse_detections_to_markdown(detections_list):
     """
@@ -323,6 +95,13 @@ def parse_detections_to_markdown(detections_list):
         md_content += "---\n\n"
 
     return md_content
+
+
+
+
+
+
+
 
 
 def generate_ship_summary_df(ship_df):
@@ -375,6 +154,14 @@ def generate_ship_summary_df(ship_df):
     return summary
 
 
+
+
+
+
+
+
+
+
 def make_empty_figure(message):
 
     fig = go.Figure()
@@ -399,6 +186,11 @@ def make_empty_figure(message):
     return fig
 
 
+
+
+
+
+
 def reset_acoustic_figures(state, message="No data available"):
     """
     Clears the spectrogram and broadband charts.
@@ -407,11 +199,26 @@ def reset_acoustic_figures(state, message="No data available"):
     state.combined_bb_fig = make_empty_figure(message)
 
 
+
+
+
+
+
+
+
+
+
 def _normalize_local_timestamp(ts):
     """
     Normalize a single timestamp to Pacific-aware.
     """
     return parse_source_timestamp(ts)
+
+
+
+
+
+
 
 
 def build_ship_psd_window(start_time, end_time):
@@ -428,6 +235,19 @@ def build_ship_psd_window(start_time, end_time):
         window_end = window_start + pd.Timedelta(hours=1)
 
     return window_start, window_end
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def extract_ship_id_from_table_payload(state, payload):
@@ -452,6 +272,13 @@ def extract_ship_id_from_table_payload(state, payload):
             return str(working_df.iloc[row_index].get("Track ID", working_df.iloc[row_index].get("id_track")))
 
     return None
+
+
+
+
+
+
+
 
 
 def calculate_masking_percentage(start_dt, end_dt, ship_df):
