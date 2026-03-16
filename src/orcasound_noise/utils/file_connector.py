@@ -215,3 +215,120 @@ class S3FileConnector:
 
     def download_file(self, filename, location):
             self.client.download_file(self.save_bucket, filename, location)
+    
+    def get_ref_file(self, hydrophone: Hydrophone, location: str):
+        self.client.download_file(self.save_bucket,
+                                    f'{hydrophone.value.save_folder}/ref/hydrophone={hydrophone.value.name}/{hydrophone.value.name}_ref.parquet',
+                                    f'{location}/{hydrophone.value.name}_ref.parquet')
+    
+
+class ShipMetricsS3Connector:
+
+    def __init__(self, no_sign=False, env_file: str = None):
+        """
+        S3File Connector maintains a connection to an AWS s3 bucket for ship metrics.
+        
+        Args:
+            no_sign: If True, use unsigned requests. If False, use AWS credentials from environment
+            env_file: Optional path to .env file for local development. If provided, environment 
+                     variables will be loaded from this file. Not recommended for production.
+        """
+
+        # Load environment variables from file if provided (for local development)
+        if env_file:
+            try:
+                from dotenv import load_dotenv
+                load_dotenv(env_file)
+            except ImportError:
+                logging.warning(f"dotenv not installed. Unable to load {env_file}. "
+                                "Relying on OS environment variables.")
+                
+
+        self.bucket = 'audio-orcasound-net'
+        self.save_bucket = "acoustic-sandbox"
+        self.save_folder = "ambient-sound-analysis/ship_metrics/data"
+
+        if no_sign:
+            self.client = boto3.client('s3', config=Config(signature_version=UNSIGNED), region_name='us-west-2')
+            self.source_resource = boto3.resource('s3', config=Config(signature_version=UNSIGNED)).Bucket(self.bucket)
+            self.archive_resource = boto3.resource('s3', config=Config(signature_version=UNSIGNED)).Bucket(self.save_bucket)
+        else:
+            # boto3 automatically looks for credentials in environment variables
+            # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, or AWS_SESSION_TOKEN
+            self.client = boto3.client('s3')
+            self.source_resource = boto3.resource('s3').Bucket(self.bucket)
+            self.archive_resource = boto3.resource('s3').Bucket(self.save_bucket)
+
+    def upload_file(self, file, file_name) -> bool:
+        """
+        Upload a parquet file to the S3 archive
+        
+        Args:
+            file: File object to upload. Must be in bytemode
+            file_name: Name of the file to save in S3
+        
+        Return:
+            Bool, True if successful upload, False otherwise
+        """
+
+
+        # If file path, open as object
+        if isinstance(file, str):
+            file = open(file, 'rb')
+            opened_file = True
+        else:
+            opened_file = False
+        
+        try:
+            response = self.client.upload_fileobj(file, self.save_bucket, self.save_folder + "/" + file_name)
+        except ClientError as e:
+            logging.error(e)
+            return False
+        else:
+            return True
+        finally:
+            if opened_file:
+                file.close()
+
+
+    def upload_partitioned_folder(self, folder_path: str):
+        """
+        Upload a partitioned parquet folder to the S3 archive
+
+        Uses AWS CLI to perform the upload to handle partitioned folders and upload only new files.
+        Requires the `aws` CLI to be installed and available on PATH.
+
+        Args:
+            folder_path: Path to the local folder containing partitioned parquet files.
+        """
+        if self.save_folder not in folder_path:
+            raise ValueError(f"folder_path must include '{self.save_folder}' to match S3 key prefix.")
+        
+        # Use AWS CLI to sync folder to S3
+        try:
+            subprocess.run(
+                [
+                    "aws", "s3", "sync",
+                    folder_path, f"s3://{self.save_bucket}/{self.save_folder}/"
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError as exc:
+            logging.error(
+                "AWS CLI is not installed or not found in PATH. "
+                "Please install and configure the AWS CLI to use upload_partitioned_folder."
+            )
+            raise
+        except subprocess.CalledProcessError as exc:
+            logging.error(
+                "AWS CLI sync command failed with return code %s.\nStdout:\n%s\nStderr:\n%s",
+                exc.returncode,
+                exc.stdout,
+                exc.stderr,
+            )
+            raise
+    
+    def download_file(self, filename, location):
+        self.client.download_file(self.save_bucket, filename, location)
