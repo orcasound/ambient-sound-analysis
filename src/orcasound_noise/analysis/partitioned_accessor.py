@@ -4,13 +4,13 @@ import datetime as dt
 from datetime import timedelta
 
 from ..utils import Hydrophone
+from orcasound_noise.pipeline.acoustic_util import octave_band
 
 class PartitionedAccessor:
     def __init__(self, hydrophone: Hydrophone, start_time: dt.datetime, end_time: dt.datetime):
         self.hydrophone = hydrophone
         self.start_time = start_time
         self.end_time = end_time
-
         s3_loc = f"s3://{hydrophone.value.save_bucket}/{hydrophone.value.save_folder}"
         psd_paths = []
         bb_paths = []
@@ -22,11 +22,46 @@ class PartitionedAccessor:
             bb_paths.append(bb_path)
             d += timedelta(days=1)
         
-        self.psd_df = (pl.scan_parquet(psd_paths,  storage_options={'aws_region': 'us-west-2'})
-                        .filter(pl.col("__index_level_0__").is_between(start_time, end_time)).sort("__index_level_0__"))
-        self.bb_df = (pl.scan_parquet(bb_paths,  storage_options={'aws_region': 'us-west-2'})
-                        .filter(pl.col("__index_level_0__").is_between(start_time, end_time)).sort("__index_level_0__"))
-    
+        self.psd_schema = self.get_psd_schema()
+        self.bb_schema = {
+                    "ind": pl.Datetime('ns'),
+                    'bb_o': pl.Float64,
+                    'comm_bb_o': pl.Float64,
+                    'ship_bb_o': pl.Float64,
+                    'bb': pl.Float64,
+                    'comm_bb': pl.Float64,
+                    'ship_bb': pl.Float64
+                }
+        
+        self.psd_df = (pl.scan_parquet(
+            psd_paths,  storage_options={'aws_region': 'us-west-2'}, 
+            schema = self.psd_schema
+            ).filter(pl.col("ind").is_between(start_time, end_time)).sort("ind")
+        )
+        
+        self.bb_df = (pl.scan_parquet(
+            bb_paths,  storage_options={'aws_region': 'us-west-2'}, 
+            schema = self.bb_schema
+            ).filter(pl.col("ind").is_between(start_time, end_time)).sort("ind")
+        )
+       
+    def get_psd_schema(self, freqs=None) -> dict:
+        '''
+        Get the schema for the PSD data. 
+        Args:
+            freqs (list, optional): A list of frequencies to include in the schema. If None, the default 1/12-octave 
+            center frequencies from 67 Hz to 22.4 kHz are used.
+        Returns:
+            dict: A dictionary representing the schema for the PSD data.
+        '''
+        if freqs is None:
+            freqs, _ = octave_band(12, [])
+            
+        schema = {"ind": pl.Datetime('ns')}
+        for freq in freqs:
+            schema[str(freq)] = pl.Float64
+        return schema   
+        
     def get_dataframes(self, lazy: bool = False):
         """
         Retrieves the PSD and broadband noise levels DataFrames for the specified time range.
@@ -63,23 +98,23 @@ class PartitionedAccessor:
             .with_columns([pl.col(col) * 0.577 * int(col) for col in selected_cols])
             # sum the power across the selected frequency bands and convert back to dB re ref Pa
             .with_columns((10 * np.log10(pl.sum_horizontal(selected_cols)/ref**2)).alias(f'{name}' if name else 'calc_bb'))
-            .select(['__index_level_0__', f'{name}' if name else 'calc_bb'])
+            .select(['ind', f'{name}' if name else 'calc_bb'])
         )
 
         return broadband
 
-def get_quantile_range(start_time: dt.datetime, end_time: dt.datetime, df: pl.LazyFrame, col_name: str = '0'):
+def get_quantile_range(start_time: dt.datetime, end_time: dt.datetime, df: pl.LazyFrame, col_name: str = 'bb'):
     """
     Retrieves quantiles for the broadband noise levels within the specified time range.
     Args:
         start_time (dt.datetime): The start time of the time range for which to retrieve quantiles.
         end_time (dt.datetime): The end time of the time range for which to retrieve quantiles.
         df (pl.LazyFrame): A LazyFrame containing broadband noise levels matching the broadband schema.
-        col_name (str): The name of the column containing broadband noise levels to calculate quantiles for. Default is '0'.
+        col_name (str): The name of the column containing broadband noise levels to calculate quantiles for. Default is 'bb'.
     Returns:
         pl.DataFrame: A DataFrame containing the broadband noise levels and their corresponding quantiles within the specified time range.
     """
-    df = df.filter(pl.col("__index_level_0__").is_between(start_time, end_time))
+    df = df.filter(pl.col("ind").is_between(start_time, end_time))
     quant_df = df.with_columns(
         (pl.col(col_name)
             .rank(method="average")
@@ -89,19 +124,19 @@ def get_quantile_range(start_time: dt.datetime, end_time: dt.datetime, df: pl.La
 
     return quant_df.collect()
     
-def get_quantiles(start_time: dt.datetime, end_time: dt.datetime, df: pl.LazyFrame, col_name: str = '0', name: str=None ):
+def get_quantiles(start_time: dt.datetime, end_time: dt.datetime, df: pl.LazyFrame, col_name: str = 'bb', name: str=None ):
     """
     Retrieves quantiles for the broadband noise levels within the specified time range.
     Args:
         start_time (dt.datetime): The start time of the time range for which to retrieve quantiles.
         end_time (dt.datetime): The end time of the time range for which to retrieve quantiles.
         df (pl.LazyFrame): A LazyFrame containing broadband noise levels matching the broadband schema.
-        col_name (str): The name of the column containing broadband noise levels to calculate quantiles for. Default is '0'.
+        col_name (str): The name of the column containing broadband noise levels to calculate quantiles for. Default is 'bb'.
         name (str): An optional name to prefix the quantile columns. Default is None.
     Returns:
         pl.Dataframe: A dataframe containing the 0.05, 0.25, 0.5, 0.75, and 0.95 quantiles for the broadband noise levels within the specified time range.
     """
-    df = df.filter(pl.col("__index_level_0__").is_between(start_time, end_time))
+    df = df.filter(pl.col("ind").is_between(start_time, end_time))
     quantiles = df.select(
         pl.col(col_name).quantile(0.05).alias(f'{name}_q05' if name else 'q05'),
         pl.col(col_name).quantile(0.25).alias(f'{name}_q25' if name else 'q25'),
@@ -112,13 +147,13 @@ def get_quantiles(start_time: dt.datetime, end_time: dt.datetime, df: pl.LazyFra
 
     return quantiles.collect()
     
-def get_percentage_over_threshold(df: pl.LazyFrame, threshold: float = 120.0, col_name: str = '0'):
+def get_percentage_over_threshold(df: pl.LazyFrame, threshold: float = 120.0, col_name: str = 'bb'):
     """
     Retrieves the percentage of time that broadband noise levels exceed a specified threshold within a given time range.
     Args:
         df (pl.LazyFrame): A LazyFrame containing broadband noise levels matching the broadband schema.
         threshold (float): The noise level threshold in dB. Default is 120.0 dB.
-        col_name (str): The name of the column containing broadband noise levels to calculate the percentage for. Default is '0'.
+        col_name (str): The name of the column containing broadband noise levels to calculate the percentage for. Default is 'bb'.
     Returns:
         pl.DataFrame: A DataFrame containing the percentage of time that broadband noise levels exceed the specified threshold within the given time range.
     """
@@ -138,5 +173,5 @@ def polars_to_pandas(pl_df: pl.DataFrame):
         pd.DataFrame: The converted Pandas DataFrame.
     """
     pd_df = pl_df.to_pandas()
-    pd_df.set_index('__index_level_0__', inplace=True)
+    pd_df.set_index('ind', inplace=True)
     return pd_df

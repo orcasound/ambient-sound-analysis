@@ -21,3 +21,4 @@ data/
 pages/
 .streamlit/
 .idea/
+tests/
