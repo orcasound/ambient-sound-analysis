@@ -336,3 +336,22 @@ class ShipMetricsCalculator:
         df_collected = df_collected.drop("geometry")
 
         return df_collected
+
+def get_ship_metrics_df():
+    s3_path = "s3://acoustic-sandbox/ambient-sound-analysis/ship_metrics/data/"
+    
+    try:
+        lf_metrics = pl.scan_parquet(
+            s3_path,
+            storage_options={
+                "aws_region": "us-west-2"
+            }
+        )
+        
+        df = lf_metrics.collect().to_pandas()
+        return df
+        
+    except Exception as e:
+        print("\n Failed to read from S3.")
+        print(f"Error details: {e}")
+        return None
