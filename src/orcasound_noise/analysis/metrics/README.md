@@ -27,9 +27,6 @@ In the ship_metrics.py, the ShipMetricsCalculator allows users to calculate ship
 | `bb_qXX` | The XXth percentile of the broadband between `s_timestamp` and `l_timestamp` |
 | `comm_bb_qXX` | The XXth percentile of the communication frequency (1000-6000 Hz) broadband between `s_timestamp` and `l_timestamp` |
 | `ship_bb_qXX` | The XXth percentile of the ship frequency  (10-200 Hz) broadband between `s_timestamp` and `l_timestamp` |
-| `bb_lsr_qXX` | The XXth percentile of the listening space reduction to the broadband between `s_datetime` and `l_datetime` |
-| `comm_bb_lsr_qXX` | The XXth percentile of the listening space reduction to the communication frequency (1000-6000 Hz) broadband between `s_datetime` and `l_datetime` |
-| `ship_bb_lsr_qXX` | The XXth percentile of the listening space reduction to the ship frequency (10-200 Hz) broadband between `s_datetime` and `l_datetime` |
 | `min_dist` | Minimum distance to the hydrophone location between `s_datetime` and `l_datetime`  |
 | `year` | The XXth percentile of the listening space reduction to the communication frequency broadband between `s_datetime` and `l_datetime` |
 | `month` | The XXth percentile of the listening space reduction to the ship frequency broadband between `s_datetime` and `l_datetime` |
