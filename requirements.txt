@@ -8,7 +8,7 @@ scikit-image==0.26.0
 scikit-learn==1.7.2
 ipykernel==6.17.1
 numpy==2.4.2
-pandas==2.3.3
+pandas
 boto3>=1.26.65
 python-dotenv
 plotly==6.5.0
