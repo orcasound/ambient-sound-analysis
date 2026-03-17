@@ -360,7 +360,6 @@ def on_ship_row_click(state, id, payload):
 
     general_cols = ["avg_speed", "max_speed", "min_speed", "duration", "distance", "min_dist", "curviness", "draft", "confidence"]
     acoustic_cols = ["bb_avg", "bb_q50", "bb_q95", "comm_bb_avg", "comm_bb_q50", "comm_bb_q95", "ship_bb_avg", "ship_bb_q50", "ship_bb_q95"]
-    lsr_cols = ["bb_lsr_q50", "bb_lsr_q95", "comm_bb_lsr_q50", "comm_bb_lsr_q95"]
 
 
     def build_tab_df(cols, series):
@@ -372,14 +371,13 @@ def on_ship_row_click(state, id, payload):
                     val = round(val, 2)
                 
                 # Clean up the variable names for display
-                name = c.replace("_", " ").title().replace("Bb", "BB").replace("Lsr", "LSR").replace("Q", "Quantile ")
+                name = c.replace("_", " ").title().replace("Bb", "BB").replace("Q", "Quantile ")
                 data.append({"Metric": name, "Value": val})
         return pd.DataFrame(data, columns=["Metric", "Value"])
 
 
     stats_general_df = build_tab_df(general_cols, full_ship_data)
     stats_acoustic_df = build_tab_df(acoustic_cols, full_ship_data)
-    stats_lsr_df = build_tab_df(lsr_cols, full_ship_data)
 
     start_time = parse_source_timestamp(full_ship_data["s_timestamp"])
     end_time = parse_source_timestamp(full_ship_data["l_timestamp"])
@@ -433,7 +431,6 @@ def on_ship_row_click(state, id, payload):
 
         s.ship_stats_general_df = stats_general_df
         s.ship_stats_acoustic_df = stats_acoustic_df
-        s.ship_stats_lsr_df = stats_lsr_df
         
         s.selected_ship_psd_fig = new_psd_fig
         s.ship_psd_chart_rebuild = not s.ship_psd_chart_rebuild
@@ -493,7 +490,6 @@ LEADERBOARD_METRIC_GROUPS = {
     "metric_comm_bb": {"columns": ["comm_bb_avg", "comm_bb_q05", "comm_bb_q25", "comm_bb_q50", "comm_bb_q75", "comm_bb_q95"]},
     "metric_overall_bb": {"columns": ["bb_avg", "bb_q05", "bb_q25", "bb_q50", "bb_q75", "bb_q95"]},
     "metric_ship_bb": {"columns": ["ship_bb_avg", "ship_bb_q05", "ship_bb_q25", "ship_bb_q50", "ship_bb_q75", "ship_bb_q95"]},
-    "metric_lsr": {"columns": ["bb_lsr_q50", "bb_lsr_q95", "comm_bb_lsr_q50", "comm_bb_lsr_q95"]},
     "metric_isolated": {"columns": ["is_isolated"]},
 }
 
@@ -504,7 +500,6 @@ leaderboard_metric_lov = [
     ("metric_comm_bb", "Communication broadband levels"),
     ("metric_overall_bb", "Overall broadband levels"),
     ("metric_ship_bb", "Ship broadband levels"),
-    ("metric_lsr", "Listening space reduction"),
     ("metric_isolated", "Isolated flag")
 ]
 
@@ -629,7 +624,6 @@ metric_confidence_class = "ship-leadboard-metric-buttons ship-leaderboard-metric
 metric_comm_bb_class = "ship-leadboard-metric-buttons ship-leaderboard-metric-unselected"
 metric_overall_bb_class = "ship-leadboard-metric-buttons ship-leaderboard-metric-unselected"
 metric_ship_bb_class = "ship-leadboard-metric-buttons ship-leaderboard-metric-unselected"
-metric_lsr_class = "ship-leadboard-metric-buttons ship-leaderboard-metric-unselected"
 metric_isolated_class = "ship-leadboard-metric-buttons ship-leaderboard-metric-unselected"
 
 leaderboard_table_rebuild = False
@@ -677,11 +671,10 @@ stats_expanded = True
 ship_psd_chart_rebuild = False
 
 selected_ship_tab = "General & Path"
-ship_tab_lov = ["General & Path", "Acoustic Broadband", "Listening Space Reduction"]
+ship_tab_lov = ["Speed, Draft & Passage Info", "Acoustic Broadband"]
 
 ship_stats_general_df = pd.DataFrame(columns=["Metric", "Value"])
 ship_stats_acoustic_df = pd.DataFrame(columns=["Metric", "Value"])
-ship_stats_lsr_df = pd.DataFrame(columns=["Metric", "Value"])
 
 data_dict_expanded = False
 
@@ -765,17 +758,6 @@ menu_lov = [
     ("Ship-Leaderboard", Icon("icon_images/cargo-ship.png", "Ship Leaderboard"))
 ]
 
-
-poster_config = {
-    "displayModeBar": True, # Forces the toolbar to show
-    "toImageButtonOptions": {
-        "format": "png", 
-        "filename": "orcasound_poster_export_hires",
-        "height": 850,    # Matches the height we set in plot_utils
-        "width": 1600,    # Good wide aspect ratio for the poster layout
-        "scale": 4        # THE MAGIC NUMBER: 4x resolution (~300 DPI)
-    }
-}
 
 # ---------------------------------------------------------------------------------------------------- #
 # ---------------------------------------- MAIN UI DEFINITION ---------------------------------------- #
@@ -924,10 +906,6 @@ with tgb.Page() as dashboard_page:
                 
                 tgb.part()
 
-        # # Replace the bottom card with this cleaner version:
-        # with tgb.part(class_name="white-poster-container"):
-        #     tgb.text("## Poster Export - Composite View", mode="md")
-        #     tgb.chart(figure="{poster_composite_fig}", config="{poster_config}") 
 
 with tgb.Page() as leaderboard_page:
     with tgb.part(class_name="page-padding"):
@@ -1001,8 +979,6 @@ with tgb.Page() as leaderboard_page:
                 with tgb.part(render="{selected_ship_tab == 'Acoustic Broadband'}"):
                     tgb.table("{ship_stats_acoustic_df}")
                     
-                with tgb.part(render="{selected_ship_tab == 'Listening Space Reduction'}"):
-                    tgb.table("{ship_stats_lsr_df}")
 
         with tgb.part(class_name="card-panel-secondary"):
             with tgb.expandable(title="Data Dictionary", expanded="{data_dict_expanded}"):
@@ -1036,7 +1012,7 @@ with tgb.Page() as leaderboard_page:
                             tgb.html("li", "<b>confidence:</b> Machine learning confidence score (0 to 1) indicating the validity of the radar track.")
                             tgb.html("li", "<b>bb_q50 / bb_q95:</b> The median (50th) and 95th percentile broadband noise levels recorded during the passage.")
                             tgb.html("li", "<b>comm_bb / ship_bb:</b> Broadband noise levels isolated to the SRKW communication band and the low-frequency commercial shipping band, respectively.")
-                            tgb.html("li", "<b>lsr_q50 / lsr_q95:</b> Listening Space Reduction. The percentage (0-100%) of acoustic space lost to marine life due to vessel noise.")
+                            
 
 pages = {
     "/": root_page,
