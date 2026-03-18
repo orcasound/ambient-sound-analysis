@@ -2,13 +2,17 @@
 
 This repository holds code for a [UW MSDS capstone project](https://www.washington.edu/datasciencemasters/capstone-projects/) that analyzes ambient underwater noise levels in historical [Orcasound](https://orcasound.net) hydrophone data. A hydrophone is an underwater microphone that can be used to monitor ocean noise levels. In the critical habitat of endangered Southern Resident killer whales, the predominant souces of anthropogenic noise pollution are commercial ships, and secondarily recreational boats.
 
-This open source project has three main components:
+This open source project has four main components:
 
-- The [pipeline](src/orcasound_noise/pipeline/README.md) that converts historical `.ts` files into compact [Power Spectral Density (PSD)](#psd) grids saved as [parquet files](https://parquet.apache.org/).
-- The [accessor](src/orcasound_noise/analysis/README.md) that reads, filters and collates these files to produce PSD dataframes with specific time ranges
-- The [dashboard](pages/README.md) that displays key results using [Streamlit](https://streamlit.io/). The live dashboard is directly connected to the repo and visible [here](https://orcasound-ambient-sound-analysis-dashboard-boh8ls.streamlit.app)
+- The [pipeline](src/orcasound_noise/pipeline/README.md) that converts historical `.ts` files into compact [Power Spectral Density (PSD)](#psd) grids saved as [parquet files](https://parquet.apache.org/) with the option to save with partitioning. 
+    - Additionally, the pipeline converts ship tracking data from [Marine Monitor (M2)](https://m2marinemonitor.com/applications/orcasound-lab-san-juan-island-washington/) at the Orcasound lab from zip files to parquet files.
+- The [partitioned_accessor](src/orcasound_noise/analysis/README.md) that reads the partitioned parquet files stored on S3.
+- The [ship metrics](src/orcasound_noise/analysis/metrics/README.md) that calculates sound metrics for ship passages and generates polars dataframes.
+- The most recent [dashboard](./taipy_visualization/) version that displays key results using [Taipy](https://taipy.io/). The live dashboard is visible [here](https://ambient-sound-analysis.onrender.com/Dashboard).
 
-Guides to recreate the AWS environments used to process the hydrophone data can be found in the [aws_batch](src/orcasound_noise/aws_batch/README.md) directory.
+The hydrophone and ship tracking data is currently being automatically processed using [scheduled Github Actions](https://docs.github.com/en/actions/get-started/understand-github-actions) in the [orca-action-workflow](https://github.com/orcasound/orca-action-workflow).
+
+2023 MSDS project guides to recreate the AWS environments used to process the hydrophone data can be found in the [aws_batch](src/orcasound_noise/aws_batch/README.md) directory.
 
 ## Tutorial
 
@@ -187,11 +191,40 @@ Download the repo, then
 
 ```
 pip install -r requirements.txt
-python -m streamlit run dashboard.py
+python taipy_visualization/main.py
 ```
 
 The dashboard will open at localhost.
 
+### Accessing Partitioned Hydrophone Data and Ship Data
+
+This project includes two analysis modules designed to make downstream querying and vessel-noise analysis easier:
+
+#### Partitioned accessor (`src/orcasound_noise/analysis/partitioned_accessor.py`)
+
+The **partitioned accessor** provides a convenient interface for reading hydrophone parquet datasets that are stored with partitioning by hydrophone and date.  
+It is intended for efficient retrieval of subsets of large datasets without loading full archives into memory.
+
+Use this module when you need to:
+
+- query specific time windows or hydrophones from partitioned parquet data
+- support analysis workflows that read directly from S3-backed parquet stores
+- prepare filtered PSD/broadband data for plotting, modeling, or metrics pipelines
+
+See also: [`src/orcasound_noise/analysis/README.md`](src/orcasound_noise/analysis/README.md)
+
+#### Ship metrics (`src/orcasound_noise/analysis/metrics/ship_metrics.py`)
+
+The **ship metrics** module computes vessel-noise summary metrics from processed hydrophone data and ship tracking context.  
+It is used to quantify acoustic characteristics during vessel passages and produce analysis-ready metric tables.
+
+Use this module when you need to:
+
+- calculate standardized ship-noise metrics for research or reporting
+- summarize vessel passage sound levels across selected windows
+- generate metric outputs for dashboards, notebooks, and comparative studies
+
+See also: [`src/orcasound_noise/analysis/metrics/README.md`](src/orcasound_noise/analysis/metrics/README.md)
 
 ## Definitions
 
@@ -242,17 +275,36 @@ pipeline.generate_parquet_file(dt.datetime(2020, 1, 1), dt.datetime(2020, 2, 1),
 
 - [librosa](https://librosa.org/) - Used for audio spectral analysis.
 - [ffmpeg](https://ffmpeg.org/) - Used for audio conversion.
-- [Streamlit](https://streamlit.io/) - Used for the dashboard presentation.
+- [Taipy](https://taipy.io/) - Used for the dashboard presentation.
 - [orca-hls-utils](https://github.com/orcasound/orca-hls-utils) - Used for HLS acquisition.
+- [polars](https://pola.rs/) and [pandas](https://pandas.pydata.org/) - Used for dataframe handling
 
 ## Authors
 
+MSDS 2023 Project
 - Caleb Case - [GitHub](https://github.com/CaseCal) [LinkedIn](https://www.linkedin.com/in/caleb-case-76132782/)
 - Mitch Haldeman - [GitHub](https://github.com/mitchhaldeman) [LinkedIn](https://www.linkedin.com/in/mitchhaldeman/)
 - Grant Savage - [GitHub](https://github.com/savageGrant) [LinkedIn](https://www.linkedin.com/in/grantsavage/)
+
+MSDS 2024 Project
 - Zach Price - [GitHub](https://github.com/zprice12) [LinkedIn](https://www.linkedin.com/in/zach-price-b65b98174/)
 - Timothy Tan - [GitHub](https://github.com/ttan06) [LinkedIn](https://www.linkedin.com/in/timothytan6/)
 - Vaibhav Mehrotra - [GitHub](https://github.com/vaibhavmehrotraml) [LinkedIn](https://www.linkedin.com/in/thevaibhavmehrotra/)
+
+MSDS 2026 Project
+- Clayton Brock [GitHub](https://github.com/ClaytonB-3) [LinkedIn](https://www.linkedin.com/in/claytonbrock/)
+- Erin Mee - [GitHub](https://github.com/erinmee) [LinkedIn](https://www.linkedin.com/in/erinmee/)
+- Hua-Hsing Huang [GitHub](https://github.com/bradyhhhuang) [LinkedIn](https://www.linkedin.com/in/huahsinghuang/)
+- Srimant Mishra [GitHub](https://github.com/Srimant77) [LinkedIn](https://www.linkedin.com/in/srimantmishra-ds/)
+
+## Disclaimer on Data and Code Usage
+
+This project is developed for [Orcasound](https://orcasound.net), an open-source community effort, with the primary goal of understanding how underwater noise may affect orcas in Puget Sound.
+
+The datasets, analyses, and code in this repository are intended for **research, education, and conservation-oriented analysis**.  
+Ship passage data and derived ship sound metrics are included **only** to characterize the underwater acoustic environment and its potential effects on orcas.
+
+Data quality, coverage, and processing assumptions may vary by source, location, and time period. Users should validate fitness for their own use case before drawing conclusions.
 
 ## Acknowledgments
 
