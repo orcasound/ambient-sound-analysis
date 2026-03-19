@@ -190,7 +190,7 @@ The dashboard will open at localhost.
 
 ### Accessing Partitioned Hydrophone Data and Ship Data
 
-This project includes two analysis modules designed to make downstream querying and vessel-noise analysis easier:
+This project includes three analysis modules designed to make downstream querying and vessel-noise analysis easier:
 
 #### Partitioned accessor (`src/orcasound_noise/analysis/partitioned_accessor.py`)
 
