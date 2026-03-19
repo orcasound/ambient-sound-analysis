@@ -196,6 +196,30 @@ python taipy_visualization/main.py
 
 The dashboard will open at localhost.
 
+### Dashboard Content
+
+The [Taipy dashboard](https://ambient-sound-analysis.onrender.com/Dashboard) has two main pages. Note: the hosted version is expected to expire at the end of March 2026; after that, the dashboard can still be run locally.
+
+#### Dashboard Page
+
+The main page provides an interactive view of the acoustic environment at the Orcasound Lab hydrophone:
+
+- **Ship & Whale Detection Timeline** — A Gantt-style chart showing ship passages and OrcaHello whale detections over a user-selected date range. Includes an acoustic masking estimate indicating the percentage of time whale communication may have been interfered with by vessel noise.
+- **PSD Spectrogram** — A Power Spectral Density spectrogram (1–16 kHz) for a selected date and hour, with an optional ship passage overlay. This visualization separates low-frequency vessel noise from the mid-to-high frequency bands used by Southern Resident killer whales (SRKWs).
+- **Broadband Sound Levels** — Time-series plots of broadband noise across three frequency bands:
+  - **Full Range** — total integrated sound energy
+  - **SRKW Communication Band (1–6 kHz)** — the primary vocalization range for killer whale pulsed calls
+  - **Ship Band (1–500 Hz)** — the frequency range dominated by commercial vessel noise
+- **Ship Passage Details** — When a ship passage is selected, a detail panel shows general tracking information (vessel type, speed, distance, duration) and acoustic metrics (broadband quantiles and level-to-source ratios).
+
+#### Ship Leaderboard Page
+
+The leaderboard ranks individual vessel passages by their acoustic impact:
+
+- Filter by noise metric (broadband, communication band, or ship band), vessel type, and isolation status
+- A sortable table of ship passages with summary acoustic statistics
+- Selecting a passage displays detailed general and acoustic metrics for that track
+
 ### Accessing Partitioned Hydrophone Data and Ship Data
 
 This project includes two analysis modules designed to make downstream querying and vessel-noise analysis easier:
