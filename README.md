@@ -8,6 +8,7 @@ This open source project has four main components:
     - Additionally, the pipeline converts ship tracking data from [Marine Monitor (M2)](https://m2marinemonitor.com/applications/orcasound-lab-san-juan-island-washington/) at the Orcasound lab from zip files to parquet files.
 - The [partitioned_accessor](src/orcasound_noise/analysis/README.md) that reads the partitioned parquet files stored on S3.
 - The [ship metrics](src/orcasound_noise/analysis/metrics/README.md) that calculates sound metrics for ship passages and generates polars dataframes.
+- The [broadband metrics](src/orcasound_noise/analysis/metrics/README.md#broadband-metrics) module that computes aggregated broadband statistics (percentiles, min, max) across hydrophones over configurable time intervals.
 - The most recent [dashboard](./taipy_visualization/) version that displays key results using [Taipy](https://taipy.io/). The live dashboard is visible [here](https://ambient-sound-analysis.onrender.com/Dashboard).
 
 The hydrophone and ship tracking data is currently being automatically processed using [scheduled Github Actions](https://docs.github.com/en/actions/get-started/understand-github-actions) in the [orca-action-workflow](https://github.com/orcasound/orca-action-workflow).
@@ -60,21 +61,12 @@ You can also install directly from GitHub:
 python -m pip install orcasound_noise@git+https://github.com/orcasound/ambient-sound-analysis
 ```
 
-### Testing and golden fixtures (`.pkl`)
+### Testing and golden fixtures
 
 This repository includes regression tests that compare pipeline outputs against **golden fixtures** stored as
-`.pkl` files under `tests/golden/`.
+`.csv` files under `tests/golden/`.
 
-- **What is `.pkl`?**: A `.pkl` file is a Python *pickle* (serialized object) file. In this repo we use it to store
-  `pandas.DataFrame` objects (PSD and broadband outputs) with their indexes and dtypes preserved.
-- **Why use it?**:
-  - Fast to read/write in tests
-  - Preserves `DataFrame` structure (timestamps, frequency columns, dtypes) without extra schema handling
-  - Compact compared to many text formats
-- **Tradeoffs**:
-  - Python-specific and not human-readable
-  - Not ideal for diffs in code review
-  - **Security**: only unpickle files you trust (pickle can execute code during load)
+Golden fixtures are named `{stem}__{config}__psd.csv` and `{stem}__{config}__bb.csv` (e.g. `live000__60s_100hz__psd.csv`). They store `pandas.DataFrame` outputs (PSD and broadband) in a human-readable, diff-friendly format.
 
 To regenerate the golden fixtures locally (requires `ffmpeg`):
 
@@ -225,6 +217,10 @@ Use this module when you need to:
 - generate metric outputs for dashboards, notebooks, and comparative studies
 
 See also: [`src/orcasound_noise/analysis/metrics/README.md`](src/orcasound_noise/analysis/metrics/README.md)
+
+#### Broadband metrics (`src/orcasound_noise/analysis/metrics/bb_metrics.py`)
+
+Computes aggregated broadband statistics (percentiles, min, max) for the `bb`, `comm_bb`, and `ship_bb` bands across hydrophones over configurable time intervals. See [`metrics README`](src/orcasound_noise/analysis/metrics/README.md#broadband-metrics) for details.
 
 ## Definitions
 
