@@ -27,7 +27,7 @@ def get_broadband_metrics(
     `point_robinson`, `north_sjc`, `sandbox`.
 
     Returned metrics for each of `bb`, `comm_bb`, and `ship_bb`:
-    `median`, `q05`, `q25`, `q75`, `q95`, `min`, `max`.
+    `q50`, `q05`, `q25`, `q75`, `q95`, `min`, `max`.
     """
     hydrophones = [hydrophones] if isinstance(hydrophones, Hydrophone) else list(hydrophones)
     if not hydrophones:
@@ -50,10 +50,10 @@ def get_broadband_metrics(
             }
         )
 
-    broadband_df = pl.concat(frames, how="diagonal_relaxed").sort(["hydrophone", "ind"])
+    broadband_lf = pl.concat(frames, how="vertical").sort(["hydrophone", "ind"])
 
     return (
-        broadband_df.lazy()
+        broadband_lf
         .with_columns(pl.col("ind").dt.truncate(INTERVALS[interval]).alias("bucket_start"))
         .group_by(["hydrophone", "bucket_start"])
         .agg(
@@ -61,7 +61,7 @@ def get_broadband_metrics(
                 expr
                 for band in BANDS
                 for expr in [
-                    pl.col(band).median().alias(f"{band}_median"),
+                    pl.col(band).quantile(0.50).alias(f"{band}_q50"),
                     pl.col(band).quantile(0.05).alias(f"{band}_q05"),
                     pl.col(band).quantile(0.25).alias(f"{band}_q25"),
                     pl.col(band).quantile(0.75).alias(f"{band}_q75"),
@@ -80,16 +80,13 @@ def _load_one_hydrophone(
     start: dt.datetime,
     end: dt.datetime,
     hydrophone: Hydrophone,
-) -> pl.DataFrame | None:
+) -> pl.LazyFrame | None:
     try:
         accessor = PartitionedAccessor(hydrophone, start_time=start, end_time=end)
-        df = accessor.bb_df.select(["ind", *BANDS]).collect()
+        lf = accessor.bb_df.select(["ind", *BANDS])
     except Exception:
         return None
 
-    if df.is_empty():
-        return None
-
-    return df.with_columns(
+    return lf.with_columns(
         pl.lit(hydrophone.value.name).alias("hydrophone"),
     )
