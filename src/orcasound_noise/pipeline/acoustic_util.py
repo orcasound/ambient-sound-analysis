@@ -8,6 +8,7 @@ import matplotlib.dates as mdates
 from skimage.restoration import denoise_wavelet
 import numpy as np
 import pandas as pd
+import polars as pl
 import plotly.graph_objects as go
 
 def apply_per_channel_energy_norm(spectrogram):
@@ -527,9 +528,28 @@ def plot_spec(psd_df):
 
     Returns: Spectral plot
     """
+    x_col = "ind"
+    if isinstance(psd_df, pd.DataFrame):
+        psd_df_z = psd_df.values.transpose()
+        # Prefer a meaningful pandas index (typically datetime); otherwise fall back to x_col.
+        has_meaningful_index = isinstance(psd_df.index, pd.DatetimeIndex)
+        if has_meaningful_index:
+            x = psd_df.index
+        elif x_col in psd_df.columns:
+            x = psd_df[x_col]
+        else:
+            x = psd_df.index
 
+    elif isinstance(psd_df, pl.LazyFrame):
+        psd_df = psd_df.collect()
+        psd_df_z = psd_df.select(pl.exclude(x_col)).to_numpy().transpose()
+        x = psd_df.get_column(x_col).to_numpy() if x_col in psd_df.columns else np.arange(psd_df.height)
+
+    elif isinstance(psd_df, pl.DataFrame):
+        psd_df_z = psd_df.select(pl.exclude(x_col)).to_numpy().transpose()
+        x = psd_df.get_column(x_col).to_numpy() if x_col in psd_df.columns else np.arange(psd_df.height)
     fig = go.Figure(
-        data=go.Heatmap(x=psd_df.index, y=psd_df.columns, z=psd_df.values.transpose(), colorscale='Viridis',
+        data=go.Heatmap(x=x, y=psd_df.columns, z=psd_df_z, colorscale='Viridis',
                         colorbar={"title": 'Magnitude'}))
     fig.update_layout(
         title="Hydrophone Power Spectral Density",
@@ -542,18 +562,51 @@ def plot_spec(psd_df):
 
 def plot_bb(bb_df):
     """
-    This function plots the broadband levels in relative decibels.
+    This function plots broadband levels in relative decibels.
 
     Args:
-        bb_df: Dataframe of broadband levels.
+        bb_df: Broadband dataframe. Supports pandas and polars dataframes.
 
     Returns: Time series of broadband levels.
     """
-    plt.figure()
-    plt.xticks(rotation = 45)
-    plt.plot(bb_df)
-    plt.title('Relative Broadband Levels')
-    plt.xlabel('Time')
-    plt.ylabel('Relative Decibels')
-    plt.xticks(rotation = 45)
-    return(plt.gcf())
+    y_col = "bb"
+    x_col = "ind"
+
+    if isinstance(bb_df, pd.DataFrame):
+        if y_col not in bb_df.columns:
+            raise KeyError(f"'{y_col}' column not found in input dataframe")
+
+        else:
+            # Prefer a meaningful pandas index (typically datetime); otherwise fall back to x_col.
+            has_meaningful_index = isinstance(bb_df.index, pd.DatetimeIndex)
+            if has_meaningful_index:
+                x = bb_df.index
+            elif x_col in bb_df.columns:
+                x = bb_df[x_col]
+            else:
+                x = bb_df.index
+            y = bb_df[y_col]
+
+    elif isinstance(bb_df, pl.LazyFrame):
+        bb_df = bb_df.collect()
+        if y_col not in bb_df.columns:
+            raise KeyError(f"'{y_col}' column not found in input dataframe")
+        x = bb_df.get_column(x_col).to_numpy() if x_col in bb_df.columns else np.arange(bb_df.height)
+        y = bb_df.get_column(y_col).to_numpy()
+
+    elif isinstance(bb_df, pl.DataFrame):
+        if y_col not in bb_df.columns:
+            raise KeyError(f"'{y_col}' column not found in input dataframe")
+        x = bb_df.get_column(x_col).to_numpy() if x_col in bb_df.columns else np.arange(bb_df.height)
+        y = bb_df.get_column(y_col).to_numpy()
+
+    else:
+        raise TypeError("bb_df must be a pandas DataFrame, polars DataFrame, or polars LazyFrame")
+
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    ax.set_title("Relative Broadband Levels")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Relative Decibels")
+    fig.autofmt_xdate(rotation=45)
+    return fig
