@@ -1,3 +1,10 @@
+# Metrics
+
+- [Ship Metrics](#ship-metrics) — per-passage vessel acoustic and tracking metrics
+- [Broadband Metrics](#broadband-metrics) — aggregated broadband statistics over time
+
+---
+
 # Ship Metrics
 
 In the ship_metrics.py, the ShipMetricsCalculator allows users to calculate ship related metrics, including speed, duration, isolation flags, acoustic metrics, and distances to hydrophones. The README will introduce the definition and usage of the metrics.
@@ -27,9 +34,6 @@ In the ship_metrics.py, the ShipMetricsCalculator allows users to calculate ship
 | `bb_qXX` | The XXth percentile of the broadband between `s_timestamp` and `l_timestamp` |
 | `comm_bb_qXX` | The XXth percentile of the communication frequency (1000-6000 Hz) broadband between `s_timestamp` and `l_timestamp` |
 | `ship_bb_qXX` | The XXth percentile of the ship frequency  (10-200 Hz) broadband between `s_timestamp` and `l_timestamp` |
-| `bb_lsr_qXX` | The XXth percentile of the listening space reduction to the broadband between `s_datetime` and `l_datetime` |
-| `comm_bb_lsr_qXX` | The XXth percentile of the listening space reduction to the communication frequency (1000-6000 Hz) broadband between `s_datetime` and `l_datetime` |
-| `ship_bb_lsr_qXX` | The XXth percentile of the listening space reduction to the ship frequency (10-200 Hz) broadband between `s_datetime` and `l_datetime` |
 | `min_dist` | Minimum distance to the hydrophone location between `s_datetime` and `l_datetime`  |
 | `year` | The XXth percentile of the listening space reduction to the communication frequency broadband between `s_datetime` and `l_datetime` |
 | `month` | The XXth percentile of the listening space reduction to the ship frequency broadband between `s_datetime` and `l_datetime` |
@@ -68,3 +72,21 @@ Create a Calculator with radar tracking, ais tracking, and broadband data. All t
 ship_metrics_cal = ShipMetricsCalculator(lf_radar, lf_ais, lf_bb)
 pl_ship_metrics = ship_metrics_cal.get_all_ship_metrics()
 ```
+
+---
+
+# Broadband Metrics
+
+The `bb_metrics.py` module provides aggregated broadband statistics from the Hive-partitioned parquet data on S3. This is the beginning of a module to support analysis of broadband acoustic data across hydrophones.
+
+`get_broadband_metrics()` loads per-hydrophone broadband data and aggregates it over configurable time intervals (`minute`, `hour`, or `day`). For each of the three bands (`bb`, `comm_bb`, `ship_bb`), it computes:
+
+| Metric | Description |
+|--------|-------------|
+| `{band}_q05` | 5th percentile |
+| `{band}_q25` | 25th percentile |
+| `{band}_q50` | 50th percentile (median) |
+| `{band}_q75` | 75th percentile |
+| `{band}_q95` | 95th percentile |
+| `{band}_min` | Minimum value |
+| `{band}_max` | Maximum value |
