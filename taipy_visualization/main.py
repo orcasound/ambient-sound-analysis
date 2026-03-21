@@ -670,7 +670,7 @@ stats_expanded = True
 
 ship_psd_chart_rebuild = False
 
-selected_ship_tab = "General & Path"
+selected_ship_tab = "Speed, Draft & Passage Info"
 ship_tab_lov = ["Speed, Draft & Passage Info", "Acoustic Broadband"]
 
 ship_stats_general_df = pd.DataFrame(columns=["Metric", "Value"])
@@ -906,6 +906,28 @@ with tgb.Page() as dashboard_page:
                 
                 tgb.part()
 
+        with tgb.part(class_name="card-panel-secondary"):
+            with tgb.expandable(title="Disclaimer and Additional Info", expanded=False, class_name="disclaimer-text"):
+                with tgb.part(class_name="bottom-padding"):
+                    tgb.text(
+                        "This project is developed for **Orcasound**, an open-source community effort, with the primary goal of understanding how underwater noise may affect orcas in Puget Sound.", 
+                        mode="md", 
+                        class_name="secondary-text-color"
+                    )
+                    tgb.html("br")
+                    tgb.text(
+                        "The datasets, analyses, and code in this repository are intended for research, education, and conservation-oriented analysis. Ship passage data and derived ship sound metrics are included only to characterize the underwater acoustic environment and its potential effects on orcas.", 
+                        mode="md", 
+                        class_name="secondary-text-color"
+                    )
+                    tgb.html("br")
+                    tgb.text(
+                        "*Data quality, coverage, and processing assumptions may vary by source, location, and time period. Users should validate fitness for their own use case before drawing conclusions.*", 
+                        mode="md", 
+                        class_name="secondary-text-color"
+                    )
+                    
+
 
 with tgb.Page() as leaderboard_page:
     with tgb.part(class_name="page-padding"):
@@ -969,11 +991,10 @@ with tgb.Page() as leaderboard_page:
                 )
                 
             with tgb.expandable(title="Detailed Ship Information", expanded="{stats_expanded}"):
-                
 
                 tgb.toggle("{selected_ship_tab}", lov="{ship_tab_lov}", class_name="sleek-toggle")
                 
-                with tgb.part(render="{selected_ship_tab == 'General & Path'}"):
+                with tgb.part(render="{selected_ship_tab == 'Speed, Draft & Passage Info'}"):
                     tgb.table("{ship_stats_general_df}")
                     
                 with tgb.part(render="{selected_ship_tab == 'Acoustic Broadband'}"):

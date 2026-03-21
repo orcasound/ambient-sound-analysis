@@ -72,6 +72,11 @@ h2, h3, h4 {
     text-decoration: underline;
 }
 
+.disclaimer-text{
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 1rem;
+}
+
 /* =========================================
    2. CARDS & WIDGETS
    ========================================= */
