@@ -1,6 +1,8 @@
-## Dashboard Overview
+# Orcasound Ambient Sound Analysis Dashboard
 
-This dashboard is a data visualization frontend built entirely in Python. It ties together raw acoustic data (Power Spectral Density and Broadband metrics from S3), Ship tracking data (from Marine Monitor or M2), and AI-driven whale detections (OrcaHello) into a single, cohesive interface.
+## 📊 Dashboard Overview
+
+This dashboard is a data visualization frontend built entirely in Python. It ties together raw acoustic data (Power Spectral Density and Broadband metrics from S3), Ship tracking data (from Marine Monitor or M2), and Machine Learning based whale detections (OrcaHello) into a single interface.
 
 ### Core Technologies
 * **[Taipy](https://taipy.io/):** Used as the core framework for the UI and state management. 
@@ -8,26 +10,39 @@ This dashboard is a data visualization frontend built entirely in Python. It tie
 * **Pandas & Polars:** Utilized heavily for data manipulation, time-series alignment, and caching large acoustic datasets retrieved from AWS S3.
 
 ### Key Features
-* **Interactive Timeline:** A Gantt chart overlaying commercial ship passages with AI-confirmed whale detections.
+* **Interactive Timeline:** A Gantt chart overlaying commercial ship passages with ML driven whale detections.
 * **Acoustic Spectrograms:** Dynamic Power Spectral Density (PSD) heatmaps that allow users to visually separate low-frequency anthropogenic noise from high-frequency biological sounds.
 * **Combined Broadband Analysis:** Line charts comparing overall ocean noise, the SRKW communication band, and the commercial shipping band.
 * **Ship Leaderboard:** A filterable database of individual ship passages, complete with their specific acoustic signatures and passage metrics (speed, draft, distance to hydrophone).
 
 ---
 
-## Known Issues & Limitations
+## 📁 Project Structure
 
-There are a few known bugs and UI quirks related to the underlying framework and data density:
 
-1. **Date Picker Instability:** Users may occasionally experience a bug where the `tgb.date` picker "jumps" or resets to a different date compared to the selected date when a new date is selected. If this happens, re-selecting the desired date usually resolves the state.
-   
-2. **Gantt Chart Click Overlap (Dense Detections):**
-   When clicking on a whale detection in the main timeline to jump to its specific acoustic data, the dashboard fetches the corresponding hour-block of data. If multiple detections are packed very closely together, the chart's click payload may accidentally register an adjacent detection. As a result, the PSD title and loaded timeframe might not perfectly match the specific dot you intended to click.
+
+The dashboard's logic is modularized across several files to separate UI components from data processing and visualization:
+
+* **`main.py`**: The primary entry point that defines the Taipy UI layout, state variables, and page routing. It also contains various functions for interactivity.
+* **`dashboard_utils.py`**: Contains helper functions for data formatting, UI state management, and timestamp localization.
+* **`plot_utils.py`**: Responsible for building and dynamically updating the Plotly interactive charts, including the spectrograms and broadband visualizations.
+* **`data_utils.py`**: Manages API requests (like fetching OrcaHello detections) and orchestrates data retrieval from AWS S3.
+* **`partitioned_accessor.py`**: Efficiently retrieves and queries partitioned Parquet files from S3 using lazy loading via Polars.
+* **`ship_metrics.py`**: Contains the core logic and classes for generating the derived ship tracking metrics that populate the dashboard's leaderboard.
 
 ---
 
-## ⚠️ Disclaimer and Additional Info
+## ⚙️ Environment Setup
 
-The datasets, analyses, and code in this repository are intended for research, education, and conservation-oriented analysis. Ship passage data and derived ship sound metrics are included only to characterize the underwater acoustic environment and its potential effects on orcas.
 
-*Data quality, coverage, and processing assumptions may vary by source, location, and time period. Users should validate fitness for their own use case before drawing conclusions.*
+
+To run this dashboard locally and fetch the necessary acoustic data from S3, you must authenticate with AWS. This project relies on a `.env` file located in the root directory. 
+
+Create a `.env` file and include the following variables:
+
+```env
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=your_aws_region
+
+To obtain the correct AWS credentials for the Orcasound S3 buckets, please contact the Orcasound team at https://github.com/orcasound/ambient-sound-analysis
