@@ -1,2 +1,2 @@
-from .daily_noise import DailyNoiseAnalysis
-from .accessor import NoiseAccessor
+from .legacy.daily_noise import DailyNoiseAnalysis
+from .legacy.accessor import NoiseAccessor

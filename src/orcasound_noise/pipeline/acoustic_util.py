@@ -8,6 +8,7 @@ import matplotlib.dates as mdates
 from skimage.restoration import denoise_wavelet
 import numpy as np
 import pandas as pd
+import polars as pl
 import plotly.graph_objects as go
 
 def apply_per_channel_energy_norm(spectrogram):
@@ -31,7 +32,6 @@ def apply_per_channel_energy_norm(spectrogram):
     Returns:
         PCEN applied spectrogram data.
     """
-
     pcen_spectrogram = librosa.core.pcen(spectrogram)
     return pcen_spectrogram
 
@@ -56,11 +56,12 @@ def wavelet_denoising(spectrogram):
     Returns:
         Denoised spectrogram data in the form of numpy array.
     """
-    im_bayes = denoise_wavelet(spectrogram,
-                               multichannel=False,
+    spec_normalized = (spectrogram - spectrogram.min()) / (spectrogram.max() - spectrogram.min())
+    im_bayes = denoise_wavelet(spec_normalized,
                                convert2ycbcr=False,
                                method="BayesShrink",
                                mode="soft")
+    im_bayes = im_bayes * (spectrogram.max() - spectrogram.min()) + spectrogram.min()
     return im_bayes
 
 
@@ -160,7 +161,6 @@ def wav_to_array(filepath,
     Returns:
         Tuple of (df1, df2)
     """
-
     # Load the .wav file
     y, sr = librosa.load(filepath, sr=None)
 
@@ -170,58 +170,81 @@ def wav_to_array(filepath,
 
     # Apply the STFT
     D_highres = librosa.stft(y, hop_length=hop_length, n_fft=n_fft)
-    # Convert from amplitude to decibels
-    spec = librosa.amplitude_to_db(np.abs(D_highres), ref=ref)
+    # Begin EM 3/2026 edits: get window power
+    window = librosa.filters.get_window("hann", n_fft, fftbins=True)
+    window_power = np.sum(window**2)
+    # Square stft output
+    power = np.abs(D_highres) ** 2
+    # Apply transform to power before converting to PSD
+    for transform_func in transforms:
+        power = transform_func(power)
+    # units of power are amplitude^2, so divide by window power and sample rate to get power spectral density in units of amplitude^2/Hz
+    psd = power / (window_power * sr)
+    # Convert to decibels
+    spec = librosa.power_to_db(psd, ref=ref, amin=1e-20)
+    # End EM 3/2026 edits
     # Save the frequencies and time for Dataframe construction
     freqs = librosa.core.fft_frequencies(sr=sr, n_fft=n_fft)
     secs = librosa.core.frames_to_time(np.arange(spec.shape[1]), sr=sr, n_fft=n_fft, hop_length=hop_length)
     times = [t0 + datetime.timedelta(seconds=x) for x in secs]
 
-    # Apply transforms
-    for transform_func in transforms:
-        spec = transform_func(spec)
+    # broadband calculated by integration of PSD
+    p_rms = np.sum(psd, axis=0) * delta_f
+    broadband = librosa.power_to_db(p_rms, ref=ref, amin=1e-20)
 
-    rms = []
-    delta_f = sr / n_fft
-    DT = D_highres.transpose()
-    # Sum over the frequencies for each time to calculate broadband
-    for i in range(len(DT)):
-        rms.append(delta_f * np.sum(np.abs(DT[i, :])))
+    # Orca communication band 1000-6000Hz
+    comm_mask = (freqs >= 1000) & (freqs <= 6000)
+    p_rms_comm = np.sum(psd[comm_mask,:], axis=0) * delta_f
+    broadband_comm = librosa.power_to_db(p_rms_comm, ref=ref, amin=1e-20)
 
-    # Create the PSD Dataframe
-    df = pd.DataFrame(spec.transpose(), columns=freqs, index=times)
-    df = df.astype(float).round(2)
+    # Ship noise band 1-500Hz
+    ship_mask = (freqs >= 1) & (freqs <= 500)
+    p_rms_ship = np.sum(psd[ship_mask,:], axis=0) * delta_f
+    broadband_ship = librosa.power_to_db(p_rms_ship, ref=ref, amin=1e-20)
+
+    # Create the PSD Dataframe with minimal copies: round in-place on a float64 array
+    spec_arr = np.asarray(spec.transpose(), dtype=np.float64)
+    np.around(spec_arr, 2, out=spec_arr)
+    df = pd.DataFrame(spec_arr, columns=freqs, index=times)
     df.columns = df.columns.map(str)
-
-    # Create the broadband dataframe
-    rms_df = pd.DataFrame(rms, index=times)
-    rms_df = rms_df.astype(float).round(2)
-    rms_df.columns = rms_df.columns.map(str)
-    # Average over desired time and convert to decibels for the broadband
-    rms_df = array_resampler_bands(df=rms_df, delta_t=delta_t)
+    
+    # Create the broadband dataframe with the same strategy
+    np.around(broadband, 2, out=broadband)
+    np.around(broadband_comm, 2, out=broadband_comm)
+    np.around(broadband_ship, 2, out=broadband_ship)
+    bb_dict = {"bb_o": broadband, "comm_bb_o": broadband_comm, "ship_bb_o": broadband_ship, 
+                "bb": broadband, "comm_bb": broadband_comm, "ship_bb": broadband_ship}
+    rms_df = pd.DataFrame(bb_dict, index=times)
+    # Average over desired time
+    rms_df = array_resampler(df=rms_df, delta_t=delta_t, ref=ref)
 
     # Calculate bands if specified
     if bands is not None:
         # Convert to bands
-        oct_unscaled, fm = spec_to_bands(np.abs(DT), bands, delta_f, freqs=freqs, ref=ref)
-        oct_df = pd.DataFrame(oct_unscaled, columns=fm, index=times).astype(float).round(2)
-        # Average over desired time and convert to decibels for bands
-        oct_df = array_resampler_bands(df=oct_df, delta_t=delta_t)
+        oct_unscaled, fm = spec_to_bands(psd.transpose(), bands, delta_f, freqs=freqs, ref=ref)
+        oct_arr = np.asarray(oct_unscaled, dtype=np.float64)
+        np.around(oct_arr, 2, out=oct_arr)
+        oct_df = pd.DataFrame(oct_arr, columns=fm, index=times)
+        # Average over desired time
+        oct_df = array_resampler(df=oct_df, delta_t=delta_t, ref=ref, fm=fm)
+        
         return oct_df, rms_df
 
     else:
         # Convert PSD back to amplitude, average over time period, and convert back to decibels
-        df = array_resampler(df=df, delta_t=delta_t)
+        df = array_resampler(df=df, delta_t=delta_t, ref=ref, fm=None)
+
         return df, rms_df
 
 
-def array_resampler(df, delta_t=1):
+def array_resampler(df, delta_t=1, ref=1, fm=None):
     """
     This function takes in the data frame of spectrogram data, converts it to amplitude, averages over time frame, and converts it back to db.
 
     Args:
         df: data frame of spectrogram data
         delta_t: Int, number of seconds per sample
+        fm: if using octave bands, pass octave band frequencies for dataframe column names
 
     Returns:
         resampled_df: data frame of spectrogram data.
@@ -231,11 +254,11 @@ def array_resampler(df, delta_t=1):
     ind = df.index
     resampled_df = df.to_numpy()
     # Convert back to amplitude for averaging
-    resampled_df = librosa.db_to_amplitude(resampled_df)
+    resampled_df = librosa.db_to_power(resampled_df, ref=ref)
     resampled_df = pd.DataFrame(resampled_df, columns=cols)
     resampled_df['ind'] = ind
     resampled_df = resampled_df.set_index(pd.DatetimeIndex(resampled_df['ind']))
-
+    resampled_df = resampled_df.drop(columns=['ind']) ## 2026-01-28 fix as pandas doesn't automatically drop the old index column in newer versions
     sample_length = str(delta_t) + 's'
 
     # Average over given time span
@@ -244,36 +267,12 @@ def array_resampler(df, delta_t=1):
 
     resampled_df = resampled_df.to_numpy()
     # Convert back to decibels
-    resampled_df = librosa.amplitude_to_db(resampled_df, ref=1)
+    resampled_df = librosa.power_to_db(resampled_df, ref=ref, amin=1e-20)
     # Reconstruct Dataframe
-    resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
+    resampled_df = pd.DataFrame(resampled_df, index=resampledIndex, columns=cols)
 
-    return resampled_df
-
-
-def array_resampler_bands(df, delta_t=1):
-    """
-    This function takes in the data frame for bands or broadband, averages over time frame, and converts it to db.
-
-    Args:
-        df: data frame of spectrogram data
-        delta_t: Int, number of seconds per sample
-
-    Returns:
-        resampled_df: data frame of broadband data.
-    """
-    resampled_df = df
-    sample_length = str(delta_t) + 's'
-
-    # Average over given time span
-    resampled_df = resampled_df.resample(sample_length).mean()
-    resampledIndex = resampled_df.index
-
-    resampled_df = resampled_df.to_numpy()
-    # Convert to decibels
-    resampled_df = librosa.amplitude_to_db(resampled_df, ref=1, top_db=200.0)
-    # Reconstruct Dataframe
-    resampled_df = pd.DataFrame(resampled_df, index=resampledIndex)
+    if fm is not None:
+        resampled_df.columns = fm
 
     return resampled_df
 
@@ -446,13 +445,12 @@ def spec_to_bands(psd, N, delta_f, freqs, ref):
     """
 
     """
-
     bands, gains = octave_band(N, freqs)
     octaves = np.empty((0, len(bands)), dtype=float)
     for row in psd:
         octaves = np.append(octaves, np.array([[band_power(row, g, delta_f) for g in gains]]), axis=0)
 
-    octaves_scaled = librosa.amplitude_to_db(octaves, ref=ref)
+    octaves_scaled = librosa.power_to_db(octaves, ref=ref, amin=1e-20)
 
     return octaves_scaled, bands
 
@@ -530,9 +528,28 @@ def plot_spec(psd_df):
 
     Returns: Spectral plot
     """
+    x_col = "ind"
+    if isinstance(psd_df, pd.DataFrame):
+        psd_df_z = psd_df.values.transpose()
+        # Prefer a meaningful pandas index (typically datetime); otherwise fall back to x_col.
+        has_meaningful_index = isinstance(psd_df.index, pd.DatetimeIndex)
+        if has_meaningful_index:
+            x = psd_df.index
+        elif x_col in psd_df.columns:
+            x = psd_df[x_col]
+        else:
+            x = psd_df.index
 
+    elif isinstance(psd_df, pl.LazyFrame):
+        psd_df = psd_df.collect()
+        psd_df_z = psd_df.select(pl.exclude(x_col)).to_numpy().transpose()
+        x = psd_df.get_column(x_col).to_numpy() if x_col in psd_df.columns else np.arange(psd_df.height)
+
+    elif isinstance(psd_df, pl.DataFrame):
+        psd_df_z = psd_df.select(pl.exclude(x_col)).to_numpy().transpose()
+        x = psd_df.get_column(x_col).to_numpy() if x_col in psd_df.columns else np.arange(psd_df.height)
     fig = go.Figure(
-        data=go.Heatmap(x=psd_df.index, y=psd_df.columns, z=psd_df.values.transpose(), colorscale='Viridis',
+        data=go.Heatmap(x=x, y=psd_df.columns, z=psd_df_z, colorscale='Viridis',
                         colorbar={"title": 'Magnitude'}))
     fig.update_layout(
         title="Hydrophone Power Spectral Density",
@@ -545,18 +562,51 @@ def plot_spec(psd_df):
 
 def plot_bb(bb_df):
     """
-    This function plots the broadband levels in relative decibels.
+    This function plots broadband levels in relative decibels.
 
     Args:
-        bb_df: Dataframe of broadband levels.
+        bb_df: Broadband dataframe. Supports pandas and polars dataframes.
 
     Returns: Time series of broadband levels.
     """
-    plt.figure()
-    plt.xticks(rotation = 45)
-    plt.plot(bb_df)
-    plt.title('Relative Broadband Levels')
-    plt.xlabel('Time')
-    plt.ylabel('Relative Decibels')
-    plt.xticks(rotation = 45)
-    return(plt.gcf())
+    y_col = "bb"
+    x_col = "ind"
+
+    if isinstance(bb_df, pd.DataFrame):
+        if y_col not in bb_df.columns:
+            raise KeyError(f"'{y_col}' column not found in input dataframe")
+
+        else:
+            # Prefer a meaningful pandas index (typically datetime); otherwise fall back to x_col.
+            has_meaningful_index = isinstance(bb_df.index, pd.DatetimeIndex)
+            if has_meaningful_index:
+                x = bb_df.index
+            elif x_col in bb_df.columns:
+                x = bb_df[x_col]
+            else:
+                x = bb_df.index
+            y = bb_df[y_col]
+
+    elif isinstance(bb_df, pl.LazyFrame):
+        bb_df = bb_df.collect()
+        if y_col not in bb_df.columns:
+            raise KeyError(f"'{y_col}' column not found in input dataframe")
+        x = bb_df.get_column(x_col).to_numpy() if x_col in bb_df.columns else np.arange(bb_df.height)
+        y = bb_df.get_column(y_col).to_numpy()
+
+    elif isinstance(bb_df, pl.DataFrame):
+        if y_col not in bb_df.columns:
+            raise KeyError(f"'{y_col}' column not found in input dataframe")
+        x = bb_df.get_column(x_col).to_numpy() if x_col in bb_df.columns else np.arange(bb_df.height)
+        y = bb_df.get_column(y_col).to_numpy()
+
+    else:
+        raise TypeError("bb_df must be a pandas DataFrame, polars DataFrame, or polars LazyFrame")
+
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    ax.set_title("Relative Broadband Levels")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Relative Decibels")
+    fig.autofmt_xdate(rotation=45)
+    return fig

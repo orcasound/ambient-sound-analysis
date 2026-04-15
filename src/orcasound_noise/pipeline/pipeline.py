@@ -5,21 +5,34 @@ import tempfile
 import time
 import logging
 import random
+import requests
+import dotenv
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import zipfile
 
 
 # Third part imports
+import geopandas as gpd
 import numpy as np
 import pandas as pd
+import polars as pl
 from multiprocessing import Pool
+from botocore.exceptions import NoCredentialsError, ClientError
 
 # Local imports
-from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
+#
+# `orca_hls_utils` is an optional dependency when running purely local
+# processing/tests. Import it lazily so importing this module does not fail
+# in environments that haven't installed the git dependency yet.
+try:
+    from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
+except ModuleNotFoundError:  # pragma: no cover
+    DateRangeHLSStream = None
 from .acoustic_util import wav_to_array
-from ..utils.file_connector import S3FileConnector
-
-from orcasound_noise.pipeline.acoustic_util import wav_to_array
-from orcasound_noise.utils import Hydrophone
-from orcasound_noise.utils.file_connector import S3FileConnector
+from ..analysis.metrics.ship_metrics import ShipMetricsCalculator
+from ..utils import Hydrophone
+from ..utils.file_connector import S3FileConnector, ShipMetricsS3Connector
 
 
 class NoiseAnalysisPipeline:
@@ -67,19 +80,55 @@ class NoiseAnalysisPipeline:
         # Calculate ref for hydrophone with generate_ref()
         self.ref = self.hydrophone.bb_ref
 
+        self.ref_filepath_td = tempfile.TemporaryDirectory()
+        self.ref_filepath = self.ref_filepath_td.name
+        try:
+            self.file_connector.get_ref_file(hydrophone, self.ref_filepath)
+            self.ref_df = pd.read_parquet(self.ref_filepath)
+        except (NoCredentialsError, ClientError) as e:
+            logging.warning(f"Error occured: {e}. Could not access reference file for {hydrophone}. Reference level will not be subtracted from broadband.")
+            self.ref_df = None
+
+    def cleanup(self):
+        """
+        Cleanup any internally-created temporary directories.
+
+        Note: If the caller provided `wav_folder`/`pqt_folder`, those directories
+        are *not* owned by this class and will not be deleted.
+        """
+        # TemporaryDirectory.cleanup() is idempotent; guard for None/AttributeError.
+        try:
+            if self.wav_folder_td is not None:
+                self.wav_folder_td.cleanup()
+                self.wav_folder_td = None
+        except AttributeError:
+            pass
+        try:
+            if self.pqt_folder_td is not None:
+                self.pqt_folder_td.cleanup()
+                self.pqt_folder_td = None
+        except AttributeError:
+            pass
+        try:
+            if self.ref_filepath_td is not None:
+                self.ref_filepath_td.cleanup()
+                self.ref_filepath_td = None
+        except AttributeError:
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.cleanup()
+        # Do not suppress exceptions.
+        return False
+
     def __del__(self):
         """"
         Remove Temp Dirs on delete
         """
-
-        try:
-            self.wav_folder_td.cleanup()
-        except AttributeError:
-            pass
-        try:
-            self.pqt_folder_td.cleanup()
-        except AttributeError:
-            pass
+        self.cleanup()
 
     @staticmethod
     def process_wav_file(args):
@@ -109,6 +158,11 @@ class NoiseAnalysisPipeline:
         Tuple of lists. First is psds and second is broadbands. Each list has one entry per wav_file generated
 
         """
+        if DateRangeHLSStream is None:
+            raise ModuleNotFoundError(
+                "orca_hls_utils is required for HLS streaming (.ts -> .wav). "
+                "Install project dependencies (e.g. `pip install -r requirements.txt`)."
+            )
         # Set timezone, pipeline won't work on devices not set to PST
         os.environ['TZ'] = 'US/Pacific'
         time.tzset()
@@ -158,8 +212,8 @@ class NoiseAnalysisPipeline:
             psd_results = psd_results[~psd_results.index.duplicated(keep='last')]
             broadband_results = broadband_results[~broadband_results.index.duplicated(keep='last')]
 
-            if ref_lvl:
-                broadband_results = broadband_results - self.ref
+            if ref_lvl and self.ref_df is not None:
+                broadband_results = self.apply_ref(broadband_results)
 
             return psd_results, broadband_results
 
@@ -199,8 +253,8 @@ class NoiseAnalysisPipeline:
             broadband_result = broadband_result[~broadband_result.index.duplicated(keep='last')]
 
             # Subtracting reference level from broadband
-            if ref_lvl:
-                broadband_result = broadband_result - self.ref
+            if ref_lvl and self.ref_df is not None:
+                broadband_result = self.apply_ref(broadband_result)
 
             return psd_result, broadband_result
 
@@ -208,7 +262,7 @@ class NoiseAnalysisPipeline:
             raise ValueError("Specify either 'safe' or 'fast' mode")
 
     def generate_parquet_file(self, start: dt.datetime, end: dt.datetime, pqt_folder_override=None,
-                              upload_to_s3=False):
+                              upload_to_s3=False, partitioning=False):
         """
         Create a parquet file of the psd at the given daterange.
 
@@ -216,28 +270,66 @@ class NoiseAnalysisPipeline:
         * end: datetime, end of data to poll
         * pqt_folder_override: Overide the object level settings for where to save pqt files.
         * upload_to_s3: Boolean, set to true to upload file to S3 after saving
+        * partitioning: Boolean, set to true to partition parquet file by year, month, day, hydrophone, type (PSD or BB)
 
         # Return
         Filepath of generated pqt file.
         """
 
         # Create PSD and broadband Dataframes
-        pds_frame, broadband_frame = self.generate_psds(start, end, overwrite_output=True)
+        psd_frame, broadband_frame = self.generate_psds(start, end, overwrite_output=True)
 
-        if pds_frame is None:
+        if psd_frame is None:
             return None, None
 
-        # Save file locally
+        # Save file locally or into temp dir
         save_folder = pqt_folder_override or self.pqt_folder
+        # fetch s3 save folder from hydrophone enum for s3 upload path
+        s3_save_folder = self.hydrophone.save_folder
         os.makedirs(save_folder, exist_ok=True)
+
         fileName = self.file_connector.create_filename(start, end, self.delta_t, self.delta_f,
                                                        octave_bands=self.bands)
         broadbandName = self.file_connector.create_filename(start, end, self.delta_t, is_broadband=True)
+
+        if partitioning:
+            psd_frame['day'] = psd_frame.index.strftime('%d')
+            psd_frame['month'] = psd_frame.index.strftime('%m')
+            psd_frame['year'] = psd_frame.index.strftime('%Y')
+            psd_frame['hydrophone'] = self.hydrophone.name
+            psd_frame.columns = psd_frame.columns.astype(str)
+
+            psd_frame.to_parquet(
+                os.path.join(save_folder, s3_save_folder, 'psd'),
+                partition_cols=['hydrophone' ,'year', 'month', 'day'],
+                engine='pyarrow',
+                index=True,
+                )
+
+            broadband_frame['day'] = broadband_frame.index.strftime('%d')
+            broadband_frame['month'] = broadband_frame.index.strftime('%m')
+            broadband_frame['year'] = broadband_frame.index.strftime('%Y')
+            broadband_frame['hydrophone'] = self.hydrophone.name
+            broadband_frame.columns = broadband_frame.columns.astype(str)
+
+            broadband_frame.to_parquet(
+                os.path.join(save_folder, s3_save_folder, 'broadband'),
+                partition_cols=['hydrophone' ,'year', 'month', 'day'],
+                engine='pyarrow',
+                index=True,
+                )
+            
+            if upload_to_s3:
+                self.file_connector.upload_partitioned_folder(os.path.join(save_folder, s3_save_folder))
+
+            return os.path.join(save_folder, s3_save_folder, 'psd'), os.path.join(save_folder, s3_save_folder, 'broadband')
+        
+        # Non-partitioned save
         filePath = os.path.join(save_folder, fileName)
         broadbandFilePath = os.path.join(save_folder, broadbandName)
-        pds_frame.columns = pds_frame.columns.astype(str)
+        psd_frame.columns = psd_frame.columns.astype(str)
         broadband_frame.columns = broadband_frame.columns.astype(str)
-        pds_frame.to_parquet(filePath)
+        psd_frame.to_parquet(filePath)
         broadband_frame.to_parquet(broadbandFilePath)
 
         # Upload to S3 bucket
@@ -389,3 +481,217 @@ class NoiseAnalysisPipeline:
         ref = np.percentile(bb, 5)
 
         return ref
+
+    def apply_ref(self, df: pd.DataFrame):
+        """
+        Apply reference level to broadband values in a given dataframe. 
+
+        * df: Dataframe with broadband values and a date column
+
+        # Return
+        Dataframe with reference level applied to broadband values.
+        """
+        
+        bb_avg = self.ref_df['bb_ref'].mean()
+        comm_avg = self.ref_df['comm_bb_ref'].mean()
+        ship_avg = self.ref_df['ship_bb_ref'].mean()
+
+        ref_dict = {
+            'bb_ref': self.ref_df.set_index('date')['bb_ref'].to_dict(),
+            'comm_bb_ref': self.ref_df.set_index('date')['comm_bb_ref'].to_dict(),
+            'ship_bb_ref': self.ref_df.set_index('date')['ship_bb_ref'].to_dict()
+        }
+        df['dates'] = df.index.date
+        dates = df['dates']
+        missing_dates = set(dates) - set(self.ref_df['date'])
+
+        if missing_dates:
+            logging.warning(f"Reference levels missing for the following dates: {missing_dates}. Broadband values returned are referenced to average reference value.")
+
+        df['bb'] = df['bb_o'] - dates.map(ref_dict['bb_ref']).fillna(bb_avg)
+        df['comm_bb'] = df['comm_bb_o'] - dates.map(ref_dict['comm_bb_ref']).fillna(comm_avg)
+        df['ship_bb'] = df['ship_bb_o'] - dates.map(ref_dict['ship_bb_ref']).fillna(ship_avg)
+        df.drop(columns=['dates'], inplace=True, errors='ignore')
+
+        return df
+
+class ShipAnalysisPipeline:
+    def __init__(self, pqt_folder: str = None, env_file: str = None, no_auth=False) -> None:
+        '''
+        Initialize the ShipAnalysisPipeline by setting up necessary parameters and temporary directories.
+        '''
+        if env_file:
+            dotenv.load_dotenv(env_file)
+        self.m2_token = os.getenv("M2_token")
+        if not self.m2_token:
+            raise ValueError("M2_token is not set")
+        
+        # self.user_id = os.getenv("M2_user_id")
+        self.radar_id = 26 # currently hardcoded to orcasound lab radar, can be made dynamic in the future
+        self.url = f"https://m2mobile.protectedseas.net/api/map/{self.radar_id}/7day/download_weekly_zip"
+        self.zip_folder_td = tempfile.TemporaryDirectory()
+        self.zip_folder = self.zip_folder_td.name
+        self.s3_connector = ShipMetricsS3Connector(no_sign=no_auth)
+
+        if pqt_folder:
+            self.pqt_folder = pqt_folder
+            self.pqt_folder_td = None
+        else:
+            self.pqt_folder_td = tempfile.TemporaryDirectory()
+            self.pqt_folder = self.pqt_folder_td.name
+    
+    def get_sdate_edate(self, lf_radar: pl.LazyFrame, lf_ais: pl.LazyFrame) -> tuple[dt.date, dt.date]:
+        '''
+        Get the start and end date in the ship tracking data.
+        Args:
+            lf_radar: pl.LazyFrame containing radar data with "sdate" and "ldate" columns in string format that can be parsed to datetime.
+            lf_ais: pl.LazyFrame containing AIS data with "sdate" and "ldate" columns in string format that can be parsed to datetime.
+        returns:
+            tuple[dt.date, dt.date]: Tuple of (start date, end date)
+        '''
+        # get min and max time
+        radar_s_date, radar_e_date = self.get_date_range(lf_radar)
+        ais_s_date, ais_e_date = self.get_date_range(lf_ais)
+
+        s_date = min(radar_s_date, ais_s_date).date()
+        e_date = max(radar_e_date, ais_e_date).date()
+
+        return s_date, e_date
+    
+    def get_date_range(self, lf: pl.LazyFrame) -> tuple[dt.date, dt.date]:
+        '''
+        Get the start and end date for a given LazyFrame.
+        Args:
+            lf: pl.LazyFrame with "sdate" and "ldate" columns in string format that can be parsed to datetime.
+        returns:
+            tuple[dt.date, dt.date]: Tuple of (start date, end date)
+        '''
+        return (
+            lf.select(
+                pl.col("sdate").str.strptime(pl.Datetime, strict=False).min(),
+                pl.col("ldate").str.strptime(pl.Datetime, strict=False).max(),
+            )
+            .collect()
+            .row(0)
+        )
+    
+    def get_raw_data_from_m2(self, return_gdf=False) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame] | tuple[pl.LazyFrame, pl.LazyFrame]:
+        """
+        Get raw AIS and radar data from M2 API for the past week, unzip the file, and return the resulting track data.
+        Args:
+            return_gdf: If True, return the raw data as GeoDataFrames. If False, return as Polars LazyFrames.
+        returns:
+            tuple[gpd.GeoDataFrame, gpd.GeoDataFrame] | tuple[pl.LazyFrame, pl.LazyFrame]: Tuple of (AIS data, Radar data) 
+            as either GeoDataFrames or Polars LazyFrames depending on the value of return_gdf.
+        """
+        
+        headers = {   
+            "Authorization": self.m2_token,
+            "accept": "application/json"
+        }
+
+        # Make the GET request to download the zip file
+        try:
+            response = requests.get(self.url, headers=headers, timeout=300)
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(f"Failed to download data from M2 API at {self.url}: {exc}") from exc
+       
+        zip_path = f"{self.zip_folder}/tracks_weekly.zip"
+        output_dir = f"{self.zip_folder}/tracks_weekly"
+
+        # Save the zip file
+        with open(zip_path, "wb") as f:
+            f.write(response.content)
+
+        # Unzip
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(output_dir)
+
+        gdf_ais = gpd.read_file(f'{output_dir}/tracks_ais_7Day.shp')
+        gdf_radar = gpd.read_file(f'{output_dir}/tracks_radar_7Day.shp')
+
+        if return_gdf:
+            return gdf_ais, gdf_radar
+
+        # Convert geometry to WKT (string)
+        gdf_ais["geometry"] = gdf_ais.geometry.to_wkt()
+        gdf_radar["geometry"] = gdf_radar.geometry.to_wkt()
+
+        # Convert to Polars
+        pl_ais = pl.from_pandas(gdf_ais).lazy()
+        pl_radar = pl.from_pandas(gdf_radar).lazy()
+
+        return pl_ais, pl_radar
+    
+    def get_ship_metrics_parquet(self, lf_radar: pl.LazyFrame, lf_ais: pl.LazyFrame, lf_bb: pl.LazyFrame, 
+                                 partitioning: bool = False, upload_to_s3: bool = False, pqt_folder_override=None,
+                                 ) -> str:
+        '''
+        Generate ship metrics parquet file from raw M2 data and broadband sound data.
+        '''
+        # Implementation for generating ship metrics and saving to parquet
+        ship_metrics_cal = ShipMetricsCalculator(lf_radar, lf_ais, lf_bb)
+        self.start_date, self.end_date = self.get_sdate_edate(lf_radar, lf_ais)
+        pl_ship_metrics = ship_metrics_cal.get_all_ship_metrics()
+
+        # Save file locally or into temp dir
+        save_folder = pqt_folder_override or self.pqt_folder
+        # fetch s3 save folder from hydrophone enum for s3 upload path
+        s3_save_folder = self.s3_connector.save_folder
+    
+        if partitioning:
+            output_file_path = os.path.join(save_folder, s3_save_folder)
+            # Save to parquet with partitioning by year/month/day
+            pl_ship_metrics.write_parquet(
+                output_file_path,
+                use_pyarrow=True,
+                pyarrow_options={"partition_cols": ["year", "month", "day"]}
+                )
+            
+            if upload_to_s3:
+                self.s3_connector.upload_partitioned_folder(output_file_path)
+
+            return output_file_path
+        
+        file_name = f'ship_metrics_{self.start_date}_{self.end_date}.parquet'
+
+        # Non-partitioned save
+        output_file_path = os.path.join(save_folder, file_name)
+        pl_ship_metrics.write_parquet(output_file_path)
+        if upload_to_s3:
+            self.s3_connector.upload_file(output_file_path, file_name)
+
+        return output_file_path
+
+    def cleanup(self):
+        """
+        Cleanup any internally-created temporary directories.
+        """
+        # TemporaryDirectory.cleanup() is idempotent; guard for None/AttributeError.
+        try:
+            if self.folder_td is not None:
+                self.folder_td.cleanup()
+                self.folder_td = None
+        except AttributeError:
+            pass
+
+        try:
+            if self.pqt_folder_td is not None:
+                self.pqt_folder_td.cleanup()
+                self.pqt_folder_td = None
+        except AttributeError:
+            pass
+
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc, tb):
+        self.cleanup()
+        # Do not suppress exceptions.
+        return False
+
+    def __del__(self):
+        """"
+        Remove Temp Dirs on delete
+        """
+        self.cleanup()

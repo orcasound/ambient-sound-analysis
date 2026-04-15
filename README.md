@@ -2,13 +2,17 @@
 
 This repository holds code for a [UW MSDS capstone project](https://www.washington.edu/datasciencemasters/capstone-projects/) that analyzes ambient underwater noise levels in historical [Orcasound](https://orcasound.net) hydrophone data. A hydrophone is an underwater microphone that can be used to monitor ocean noise levels. In the critical habitat of endangered Southern Resident killer whales, the predominant souces of anthropogenic noise pollution are commercial ships, and secondarily recreational boats.
 
-This open source project has three main components:
+This open source project has four main components:
 
-- The [pipeline](src/orcasound_noise/pipeline/README.md) that converts historical `.ts` files into compact [Power Spectral Density (PSD)](#psd) grids saved as [parquet files](https://parquet.apache.org/).
-- The [accessor](src/orcasound_noise/analysis/README.md) that reads, filters and collates these files to produce PSD dataframes with specific time ranges
-- The [dashboard](pages/README.md) that displays key results using [Streamlit](https://streamlit.io/). The live dashboard is directly connected to the repo and visible [here](https://orcasound-ambient-sound-analysis-dashboard-boh8ls.streamlit.app)
+- The [pipeline](src/orcasound_noise/pipeline/README.md) that converts historical `.ts` files into compact [Power Spectral Density (PSD)](#psd) grids saved as [parquet files](https://parquet.apache.org/) with the option to save with partitioning. 
+    - Additionally, the pipeline converts ship tracking data from [Marine Monitor (M2)](https://m2marinemonitor.com/applications/orcasound-lab-san-juan-island-washington/) at the Orcasound lab from zip files to parquet files.
+- The [partitioned_accessor](src/orcasound_noise/analysis/README.md) that reads the partitioned parquet files stored on S3.
+- The [ship metrics](src/orcasound_noise/analysis/metrics/README.md) that calculates sound metrics for ship passages and generates polars dataframes.
+- The most recent [dashboard](./taipy_visualization/) version that displays key results using [Taipy](https://taipy.io/). The live dashboard is visible [here](https://ambient-sound-analysis.onrender.com/Dashboard).
 
-Guides to recreate the AWS environments used to process the hydrophone data can be found in the [aws_batch](src/orcasound_noise/aws_batch/README.md) directory.
+The hydrophone and ship tracking data is currently being automatically processed using [scheduled Github Actions](https://docs.github.com/en/actions/get-started/understand-github-actions) in the [orca-action-workflow](https://github.com/orcasound/orca-action-workflow).
+
+2023 MSDS project guides to recreate the AWS environments used to process the hydrophone data can be found in the [aws_batch](src/orcasound_noise/aws_batch/README.md) directory.
 
 ## Tutorial
 
@@ -26,11 +30,11 @@ git clone https://github.com/orcasound/ambient-sound-analysis.git
 
 #### Sample Virtual Environment
 
-If starting from a new virtual environment, ensure that ffmpeg is included in the creation, and that the Python version is 3.9.
+If starting from a new virtual environment, ensure that ffmpeg is included in the creation, and that the Python version is 3.11.
 
 ```commandline
-conda create -n orca_env -c conda-forge ffmpeg python=3.9
-
+cd ambient-sound-analysis
+conda env create -f environment.yml
 conda activate orca_env
 ```
 
@@ -54,6 +58,28 @@ You can also install directly from GitHub:
 
 ```
 python -m pip install orcasound_noise@git+https://github.com/orcasound/ambient-sound-analysis
+```
+
+### Testing and golden fixtures (`.pkl`)
+
+This repository includes regression tests that compare pipeline outputs against **golden fixtures** stored as
+`.pkl` files under `tests/golden/`.
+
+- **What is `.pkl`?**: A `.pkl` file is a Python *pickle* (serialized object) file. In this repo we use it to store
+  `pandas.DataFrame` objects (PSD and broadband outputs) with their indexes and dtypes preserved.
+- **Why use it?**:
+  - Fast to read/write in tests
+  - Preserves `DataFrame` structure (timestamps, frequency columns, dtypes) without extra schema handling
+  - Compact compared to many text formats
+- **Tradeoffs**:
+  - Python-specific and not human-readable
+  - Not ideal for diffs in code review
+  - **Security**: only unpickle files you trust (pickle can execute code during load)
+
+To regenerate the golden fixtures locally (requires `ffmpeg`):
+
+```commandline
+python -m tests.generate_test_data
 ```
 
 ### Creating a new PSD
@@ -165,11 +191,64 @@ Download the repo, then
 
 ```
 pip install -r requirements.txt
-python -m streamlit run dashboard.py
+python taipy_visualization/main.py
 ```
 
 The dashboard will open at localhost.
 
+### Dashboard Content
+
+The [Taipy dashboard](https://ambient-sound-analysis.onrender.com/Dashboard) has two main pages. Note: the hosted version is expected to expire at the end of March 2026; after that, the dashboard can still be run locally.
+
+#### Dashboard Page
+
+The main page provides an interactive view of the acoustic environment at the Orcasound Lab hydrophone:
+
+- **Ship & Whale Detection Timeline** — A Gantt-style chart showing ship passages and OrcaHello whale detections over a user-selected date range. Includes an acoustic masking estimate indicating the percentage of time whale communication may have been interfered with by vessel noise.
+- **PSD Spectrogram** — A Power Spectral Density spectrogram (1–16 kHz) for a selected date and hour, with an optional ship passage overlay. This visualization separates low-frequency vessel noise from the mid-to-high frequency bands used by Southern Resident killer whales (SRKWs).
+- **Broadband Sound Levels** — Time-series plots of broadband noise across three frequency bands:
+  - **Full Range** — total integrated sound energy
+  - **SRKW Communication Band (1–6 kHz)** — the primary vocalization range for killer whale pulsed calls
+  - **Ship Band (1–500 Hz)** — the frequency range dominated by commercial vessel noise
+- **Ship Passage Details** — When a ship passage is selected, a detail panel shows general tracking information (vessel type, speed, distance, duration) and acoustic metrics (broadband quantiles and level-to-source ratios).
+
+#### Ship Leaderboard Page
+
+The leaderboard ranks individual vessel passages by their acoustic impact:
+
+- Filter by noise metric (broadband, communication band, or ship band), vessel type, and isolation status
+- A sortable table of ship passages with summary acoustic statistics
+- Selecting a passage displays detailed general and acoustic metrics for that track
+
+### Accessing Partitioned Hydrophone Data and Ship Data
+
+This project includes two analysis modules designed to make downstream querying and vessel-noise analysis easier:
+
+#### Partitioned accessor (`src/orcasound_noise/analysis/partitioned_accessor.py`)
+
+The **partitioned accessor** provides a convenient interface for reading hydrophone parquet datasets that are stored with partitioning by hydrophone and date.  
+It is intended for efficient retrieval of subsets of large datasets without loading full archives into memory.
+
+Use this module when you need to:
+
+- query specific time windows or hydrophones from partitioned parquet data
+- support analysis workflows that read directly from S3-backed parquet stores
+- prepare filtered PSD/broadband data for plotting, modeling, or metrics pipelines
+
+See also: [`src/orcasound_noise/analysis/README.md`](src/orcasound_noise/analysis/README.md)
+
+#### Ship metrics (`src/orcasound_noise/analysis/metrics/ship_metrics.py`)
+
+The **ship metrics** module computes vessel-noise summary metrics from processed hydrophone data and ship tracking context.  
+It is used to quantify acoustic characteristics during vessel passages and produce analysis-ready metric tables.
+
+Use this module when you need to:
+
+- calculate standardized ship-noise metrics for research or reporting
+- summarize vessel passage sound levels across selected windows
+- generate metric outputs for dashboards, notebooks, and comparative studies
+
+See also: [`src/orcasound_noise/analysis/metrics/README.md`](src/orcasound_noise/analysis/metrics/README.md)
 
 ## Definitions
 
@@ -220,17 +299,36 @@ pipeline.generate_parquet_file(dt.datetime(2020, 1, 1), dt.datetime(2020, 2, 1),
 
 - [librosa](https://librosa.org/) - Used for audio spectral analysis.
 - [ffmpeg](https://ffmpeg.org/) - Used for audio conversion.
-- [Streamlit](https://streamlit.io/) - Used for the dashboard presentation.
+- [Taipy](https://taipy.io/) - Used for the dashboard presentation.
 - [orca-hls-utils](https://github.com/orcasound/orca-hls-utils) - Used for HLS acquisition.
+- [polars](https://pola.rs/) and [pandas](https://pandas.pydata.org/) - Used for dataframe handling
 
 ## Authors
 
+MSDS 2023 Project
 - Caleb Case - [GitHub](https://github.com/CaseCal) [LinkedIn](https://www.linkedin.com/in/caleb-case-76132782/)
 - Mitch Haldeman - [GitHub](https://github.com/mitchhaldeman) [LinkedIn](https://www.linkedin.com/in/mitchhaldeman/)
 - Grant Savage - [GitHub](https://github.com/savageGrant) [LinkedIn](https://www.linkedin.com/in/grantsavage/)
+
+MSDS 2024 Project
 - Zach Price - [GitHub](https://github.com/zprice12) [LinkedIn](https://www.linkedin.com/in/zach-price-b65b98174/)
 - Timothy Tan - [GitHub](https://github.com/ttan06) [LinkedIn](https://www.linkedin.com/in/timothytan6/)
 - Vaibhav Mehrotra - [GitHub](https://github.com/vaibhavmehrotraml) [LinkedIn](https://www.linkedin.com/in/thevaibhavmehrotra/)
+
+MSDS 2026 Project
+- Clayton Brock [GitHub](https://github.com/ClaytonB-3) [LinkedIn](https://www.linkedin.com/in/claytonbrock/)
+- Erin Mee - [GitHub](https://github.com/erinmee) [LinkedIn](https://www.linkedin.com/in/erinmee/)
+- Hua-Hsing Huang [GitHub](https://github.com/bradyhhhuang) [LinkedIn](https://www.linkedin.com/in/huahsinghuang/)
+- Srimant Mishra [GitHub](https://github.com/Srimant77) [LinkedIn](https://www.linkedin.com/in/srimantmishra-ds/)
+
+## Disclaimer on Data and Code Usage
+
+This project is developed for [Orcasound](https://orcasound.net), an open-source community effort, with the primary goal of understanding how underwater noise may affect orcas in Puget Sound.
+
+The datasets, analyses, and code in this repository are intended for **research, education, and conservation-oriented analysis**.  
+Ship passage data and derived ship sound metrics are included **only** to characterize the underwater acoustic environment and its potential effects on orcas.
+
+Data quality, coverage, and processing assumptions may vary by source, location, and time period. Users should validate fitness for their own use case before drawing conclusions.
 
 ## Acknowledgments
 

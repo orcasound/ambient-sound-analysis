@@ -5,7 +5,7 @@ import pickle
 import streamlit as st
 import pandas as pd
 
-from src.orcasound_noise.analysis import DailyNoiseAnalysis
+from src.orcasound_noise.analysis.legacy.daily_noise import DailyNoiseAnalysis
 from src.orcasound_noise.utils import Hydrophone
 from src.orcasound_noise.pipeline import pipeline
 from src.orcasound_noise.pipeline import acoustic_util
