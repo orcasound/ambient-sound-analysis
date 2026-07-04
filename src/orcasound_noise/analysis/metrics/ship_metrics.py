@@ -339,7 +339,7 @@ class ShipMetricsCalculator:
         return df_collected
 
 def get_ship_metrics_df():
-    s3_path = "s3://acoustic-sandbox/ambient-sound-analysis/ship_metrics/data/"
+    s3_path = "s3://acoustic-sandbox/ambient-sound-analysis/ship_metrics/data/year=2026/month=03/"
     
     try:
         lf_metrics = pl.scan_parquet(
