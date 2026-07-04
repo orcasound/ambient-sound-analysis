@@ -1049,4 +1049,7 @@ gui = Gui(pages=pages)
 detection_partial = gui.add_partial(initial_det_string)
 
 if __name__ == "__main__":
-    gui.run(title="Orcasound Dashboard")
+    gui.run(
+        host="0.0.0.0",
+        title="Orcasound Dashboard"
+    )
